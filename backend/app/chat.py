@@ -6,6 +6,7 @@ from app.config import settings
 from app.prompt_builder import PromptBuilder
 from app.session import SessionManager
 from app.llm_client import LLMClient
+from app.mcp_connection import get_tools
 
 router = APIRouter()
 
@@ -49,7 +50,7 @@ async def _stream_response(session_id: str, user_message: str):
     messages.extend(session_manager.get_messages(session_id))
 
     # Get tools from MCP if available
-    tools = None
+    tools = get_tools()
 
     accumulated_text = ""
     tool_calls_buffer: list[dict] = []
