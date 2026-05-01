@@ -1,5 +1,21 @@
 .superpowers/
 
+# Dependencies
+node_modules/
+.venv/
+__pycache__/
+
+# Playwright MCP logs
+.playwright-mcp/
+
+# OS
+.DS_Store
+docs/superpowers/.DS_Store
+
+# Build
+web/.next/
+web/node_modules/
+
 # Deprecated - kept for reference only
 backend/
 frontend/

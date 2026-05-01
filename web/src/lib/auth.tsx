@@ -1,0 +1,79 @@
+"use client";
+
+import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { login as apiLogin, getAgents } from "./api";
+
+interface User {
+  id: string;
+  username: string;
+  email: string;
+  role: string;
+}
+
+interface Agent {
+  id: string;
+  name: string;
+  config: { description?: string };
+}
+
+interface AuthContextType {
+  user: User | null;
+  agent: Agent | null;
+  loading: boolean;
+  login: (username: string, password: string) => Promise<void>;
+  logout: () => void;
+}
+
+const AuthContext = createContext<AuthContextType | null>(null);
+
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [user, setUser] = useState<User | null>(null);
+  const [agent, setAgent] = useState<Agent | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    // Check if already logged in
+    getAgents()
+      .then(async () => {
+        // Session is valid, get user info from storage
+        const stored = localStorage.getItem("fc_user");
+        if (stored) {
+          const { user: u, agent: a } = JSON.parse(stored);
+          setUser(u);
+          setAgent(a);
+        }
+      })
+      .catch(() => {
+        // Not logged in
+        localStorage.removeItem("fc_user");
+      })
+      .finally(() => setLoading(false));
+  }, []);
+
+  const login = async (username: string, password: string) => {
+    const { user: u } = await apiLogin(username, password);
+    const { agents } = await getAgents();
+    const a = agents[0]; // Take the first (only) agent
+    setUser(u);
+    setAgent(a);
+    localStorage.setItem("fc_user", JSON.stringify({ user: u, agent: a }));
+  };
+
+  const logout = () => {
+    setUser(null);
+    setAgent(null);
+    localStorage.removeItem("fc_user");
+  };
+
+  return (
+    <AuthContext.Provider value={{ user, agent, loading, login, logout }}>
+      {children}
+    </AuthContext.Provider>
+  );
+}
+
+export function useAuth() {
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error("useAuth must be used within AuthProvider");
+  return ctx;
+}

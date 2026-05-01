@@ -1,6 +1,6 @@
 # Amazon Web Agent
 
-> 竞品与需求分析 Web Agent — 基于 FastClaw 的亚马逊品类分析工具
+> 竞品与需求分析 Web Agent — 基于 FastClaw（Fork）的亚马逊品类分析工具
 
 ## 架构
 
@@ -8,7 +8,7 @@
 浏览器（朋友）
     ↓ HTTPS（Cloudflare Tunnel）
 ┌─────────────────────────────────┐
-│  FastClaw v0.27.0  :18953       │
+│  FastClaw (Fork)  :18953        │
 │  ├─ Web UI（Next.js 内置）       │
 │  ├─ 用户管理 / 多会话            │
 │  ├─ Agent 运行时                 │
@@ -17,17 +17,11 @@
 │  ├─ LLM Provider: MiniMax M2.7  │
 │  └─ MCP 工具: Sorftime (56个)   │
 └─────────────────────────────────┘
-    ↓ localhost:18954
-┌─────────────────────────────────┐
-│  MCP Proxy :18954                │
-│  注入 Accept header              │
-│  SSE → JSON 响应转换             │
-└─────────────────────────────────┘
-    ↓ HTTPS
+    ↓ HTTPS（直连，已修复 Accept header）
   Sorftime MCP Server
 ```
 
-**为什么需要 Proxy：** FastClaw 的 Streamable HTTP 客户端缺少 `Accept: application/json, text/event-stream` header，Sorftime 返回 406。Proxy 补全 header 并将 SSE 响应转为 JSON。
+**Fork 改动：** 原版 FastClaw 的 MCP HTTP 客户端缺少 `Accept` header 且不支持 SSE 响应解析。我们 Fork 后修复了这两个问题（`internal/mcp/http.go`），MCP 直连 Sorftime，不再需要 Proxy。
 
 ## 服务地址
 
@@ -35,7 +29,6 @@
 |------|------|------|
 | FastClaw (本地) | http://localhost:18953 | 本地访问 |
 | FastClaw (外网) | https://macbook-pro.tail31cb8d.ts.net | 朋友访问入口（Tailscale Funnel） |
-| MCP Proxy | http://localhost:18954 | Sorftime header 代理（内部） |
 
 ## 目录结构
 
@@ -43,9 +36,7 @@
 amazon-web-agent/
 ├── PRD.md                          # 产品需求文档
 ├── README.md                       # 本文件
-├── mcp-proxy/                      # MCP header proxy
-│   ├── main.py                     # Starlette 反向代理
-│   └── pyproject.toml
+├── mcp-proxy/                      # [已废弃] MCP header proxy（已被 Fork 修复取代）
 ├── agents/                         # Agent 知识文件（源文件）
 │   └── 竞品与需求分析/
 │       ├── SOUL.md                 # 角色 + 意图路由 + 质检清单
@@ -87,6 +78,8 @@ amazon-web-agent/
 | 配置项 | 值 |
 |--------|-----|
 | Agent ID | `agt_641dd151f236281066ee` |
+| FastClaw | Fork 版本（修复 MCP Accept header + SSE 解析） |
+| 源码 | `~/fastclaw/`（Fork from github.com/fastclaw-ai/fastclaw） |
 | 模型 | `minimax/MiniMax-M2.7` |
 | SOUL.md | 角色、意图路由表、质检清单 |
 | Skills | 4 个（市场调研、竞品分析、用户模型、交易模型） |
@@ -114,10 +107,17 @@ amazon-web-agent/
 ~/.local/bin/fastclaw daemon restart  # 重启
 ~/.local/bin/fastclaw daemon status   # 状态
 
-# MCP Proxy
-cd amazon-web-agent/mcp-proxy
-source .venv/bin/activate
-python main.py                        # 前台运行
+# 重新编译 Fork 版本（修改源码后）
+cd ~/fastclaw
+# 如果改了前端：
+cd web && pnpm install && pnpm build && cd ..
+cp -r web/out internal/setup/web
+# 编译 Go 二进制
+go build -o fastclaw-test ./cmd/fastclaw
+# 替换并重启
+~/.local/bin/fastclaw daemon stop
+cp fastclaw-test ~/.local/bin/fastclaw
+~/.local/bin/fastclaw daemon start
 
 # 登录 API（注意：字段名是 login 不是 username）
 curl -X POST http://localhost:18953/api/login \
@@ -132,8 +132,9 @@ tail -f ~/.fastclaw/logs/gateway.log
 
 | 问题 | 影响 | 状态 |
 |------|------|------|
-| FastClaw MCP 客户端缺少 Accept header | Sorftime 直连失败（406） | 已通过 MCP Proxy 绕过 |
-| FastClaw 不支持 `type=sse` MCP | 只能用 `type=http` | 不影响，Proxy 处理 |
+| FastClaw MCP 客户端缺少 Accept header | Sorftime 直连失败（406） | ✅ 已在 Fork 中修复 |
+| FastClaw 不支持 SSE 响应解析 | MCP 工具调用失败 | ✅ 已在 Fork 中修复 |
+| MCP Proxy | 不再需要 | 已废弃 |
 
 ## 待做
 
