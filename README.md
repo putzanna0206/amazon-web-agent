@@ -33,8 +33,9 @@
 
 | 服务 | 地址 | 用途 |
 |------|------|------|
-| FastClaw Web UI | http://localhost:18953 | 用户访问入口 |
-| MCP Proxy | http://localhost:18954 | Sorftime header 代理 |
+| FastClaw (本地) | http://localhost:18953 | 本地访问 |
+| FastClaw (外网) | https://macbook-pro.tail31cb8d.ts.net | 朋友访问入口（Tailscale Funnel） |
+| MCP Proxy | http://localhost:18954 | Sorftime header 代理（内部） |
 
 ## 目录结构
 
