@@ -412,15 +412,37 @@ function MessageBubble({ msg, streaming }: { msg: ChatMessage; streaming: boolea
 
 /* ─── Markdown ─── */
 const FILTERED_WORDS: [RegExp, string][] = [
-  // Brand names first (most specific)
+  // ═══ 数据源品牌（含拆字 / 加空格 / 大小写变体）═══
+  [/S[\s\-_·.]*o[\s\-_·.]*r[\s\-_·.]*f[\s\-_·.]*t[\s\-_·.]*i[\s\-_·.]*m[\s\-_·.]*e/gi, "我们的数据系统"],
   [/Sorftime/gi, "我们的数据系统"],
-  // Composite tool prefixes (must come before individual matches)
+  // ═══ Agent 框架 / 运行时 ═══
+  [/F[\s\-_·.]*a[\s\-_·.]*s[\s\-_·.]*t[\s\-_·.]*c[\s\-_·.]*l[\s\-_·.]*a[\s\-_·.]*w/gi, "Agent 平台"],
+  [/FastClaw/gi, "Agent 平台"],
+  // ═══ 模型与模型商 ═══
+  [/MiniMax[\s\-_]*M?2?\.?7?/gi, "模型"],
+  [/MiniMax/gi, "模型"],
+  [/minimax/gi, "模型"],
+  [/M2\.7\s*(HighSpeed)?/gi, "模型"],
+  [/zhipu[\s\-_]*glm/gi, "模型"],
+  [/glm[\s\-_]*[0-9.]+/gi, "模型"],
+  [/\bGLM\b/g, "模型"],
+  [/\bAnthropic\b/gi, "模型厂商"],
+  [/\bClaude\s+(Opus|Sonnet|Haiku)?[\s0-9.]*/gi, "模型"],
+  [/\bOpenAI\b/gi, "模型厂商"],
+  [/\bGPT[\s\-]*[0-9.]*/gi, "模型"],
+  [/\bGemini\b/gi, "模型"],
+  // ═══ 同类电商分析工具 ═══
+  [/Helium\s*10/gi, "其他同类工具"],
+  [/Jungle\s*Scout/gi, "其他同类工具"],
+  [/Sellics/gi, "其他同类工具"],
+  [/Viral\s*Launch/gi, "其他同类工具"],
+  // ═══ 协议 / 架构关键词 ═══
   [/分析系统_我们的数据系统_\w+/g, "数据查询"],
-  [/mcp_sorftime_\w+/g, "数据查询"],
-  [/mcp_\w+/g, "数据查询"],
-  // MCP architecture terms
-  [/MCP\s*(Server|工具|工具集|平台|协议)?/gi, "分析系统"],
-  // Individual tool names
+  [/mcp_sorftime_\w+/gi, "数据查询"],
+  [/mcp_\w+/gi, "数据查询"],
+  [/\bMCP\s*(Server|Client|工具|工具集|平台|协议|server|client)?/gi, "分析系统"],
+  [/Model\s*Context\s*Protocol/gi, "分析系统"],
+  // ═══ 工具真名（旧）═══
   [/product_search/gi, "产品搜索"],
   [/product_detail/gi, "产品详情"],
   [/product_reviews/gi, "评论采集"],
@@ -449,11 +471,16 @@ const FILTERED_WORDS: [RegExp, string][] = [
   [/tiktok_\w+/gi, "TikTok数据"],
   [/favorite_keyword\w*/gi, "词库管理"],
   [/get_favorite_keyword\w*/gi, "词库查询"],
-  // Internal module names
+  // ═══ 内部模块名（runtime 路径中也会出现）═══
   [/market[_-]research/gi, "市场调研"],
   [/competitor[_-]analysis/gi, "竞品分析"],
   [/user[_-]model/gi, "用户分析"],
   [/trade[_-]model/gi, "交易分析"],
+  // ═══ 内部文件 / 配置项名 ═══
+  [/SOUL\.md/gi, "[配置]"],
+  [/SKILL\.md/gi, "[配置]"],
+  [/\bagt_[a-f0-9]+/gi, "[配置]"],
+  [/\.fastclaw/gi, "[配置]"],
   [/分析系统集/g, "分析系统"],
 ];
 
