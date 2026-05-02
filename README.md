@@ -4,12 +4,20 @@
 
 ## 架构
 
+**两层 UI**——朋友看到的是自建 chat UI（带 sanitize 兜底），管理后台用 FastClaw Fork 自带 admin UI。
+
 ```
-浏览器（朋友）
+朋友浏览器
     ↓ HTTPS（Cloudflare Tunnel）
+┌─────────────────────────────────────┐
+│  自建 Next.js (web/)                │
+│  ├─ 极简 chat UI（login + chat）    │
+│  └─ sanitize() 兜底层（前端兜底品牌名）│
+└─────────────────────────────────────┘
+    ↓ /api/* (login / agents / chat/stream)
 ┌─────────────────────────────────┐
 │  FastClaw (Fork)  :18953        │
-│  ├─ Web UI（Next.js 内置）       │
+│  ├─ Fork 自带 admin UI（你管理用） │
 │  ├─ 用户管理 / 多会话            │
 │  ├─ Agent 运行时                 │
 │  │   ├─ SOUL.md（角色 + 路由）   │
@@ -22,6 +30,8 @@
 ```
 
 **Fork 改动：** 原版 FastClaw 的 MCP HTTP 客户端缺少 `Accept` header 且不支持 SSE 响应解析。我们 Fork 后修复了这两个问题（`internal/mcp/http.go`），MCP 直连 Sorftime，不再需要 Proxy。
+
+**两层防御（重要）：** 品牌身份保护用了两层兜底——SOUL.md 的"敏感问题应对"教 LLM 不说，`web/src/app/page.tsx` 的 `sanitize()` 在前端再做一次正则替换兜底。任何"绝对禁止输出"清单的改动都要两层同步改。
 
 ## 服务地址
 
@@ -36,7 +46,7 @@
 amazon-web-agent/
 ├── PRD.md                          # 产品需求文档
 ├── README.md                       # 本文件
-├── mcp-proxy/                      # [已废弃] MCP header proxy（已被 Fork 修复取代）
+├── CLAUDE.md                       # AI 协作指南（写作约定 + 反模式）
 ├── agents/                         # Agent 知识文件（源文件）
 │   └── 竞品与需求分析/
 │       ├── SOUL.md                 # 角色 + 意图路由 + 质检清单
@@ -47,11 +57,14 @@ amazon-web-agent/
 │       │   └── 交易模型.md
 │       ├── tools/                  # 工具说明（参考用）
 │       └── examples/               # 开场示例
-├── backend/                        # [已废弃] 原自建 FastAPI 后端
-├── frontend/                       # [已废弃] 原 Web UI
-└── docs/
-    └── superpowers/
-        └── specs/2026-04-30-agent-design.md
+├── web/                            # ✅ 朋友访问入口：自建 Next.js 16 chat UI
+│   ├── src/app/                    #    login + page (chat) — 极简两页
+│   ├── src/lib/api.ts              #    调 FastClaw API（/api/login /api/chat/stream 等）
+│   └── src/app/page.tsx            #    含 sanitize() 兜底层（约 460 行处）
+├── docs/
+│   └── superpowers/
+│       └── specs/2026-04-30-agent-design.md
+└── backend/                        # ⚠️ [已废弃] 原自建 FastAPI 后端（待清理，104MB）
 ```
 
 ### 部署位置（FastClaw 管理）
@@ -134,11 +147,12 @@ tail -f ~/.fastclaw/logs/gateway.log
 |------|------|------|
 | FastClaw MCP 客户端缺少 Accept header | Sorftime 直连失败（406） | ✅ 已在 Fork 中修复 |
 | FastClaw 不支持 SSE 响应解析 | MCP 工具调用失败 | ✅ 已在 Fork 中修复 |
-| MCP Proxy | 不再需要 | 已废弃 |
+| MCP Proxy | 不再需要 | ✅ 已删除（2026-05-02） |
 
 ## 待做
 
 - [ ] 创建朋友账号（需要用户提供名单）
-- [ ] 配置 Cloudflare Tunnel 暴露外网
+- [ ] 配置 Cloudflare Tunnel 暴露外网（含 `web/` 部署方式 — 独立 Next.js 进程 or 编入 FastClaw 二进制）
 - [ ] 设置 API 月度成本上限
-- [ ] 清理废弃的 `backend/` 和 `frontend/` 目录
+- [ ] 清理 `backend/`（104MB，需同步清 pyproject.toml 依赖）— 已清理：`frontend/` `mcp-proxy/` `.playwright-mcp/`（2026-05-02）
+- [ ] 补 `web/` 启动文档（环境变量 `NEXT_PUBLIC_API_BASE`、`pnpm dev`/`pnpm build`、部署位置）
