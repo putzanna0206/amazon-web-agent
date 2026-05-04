@@ -18,7 +18,7 @@ export default function LoginPage() {
     setLoading(true);
     try {
       await login(username, password);
-      router.push("/");
+      router.push("/chat");
     } catch {
       setError("用户名或密码错误");
     } finally {
@@ -29,9 +29,14 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
       <div className="w-full max-w-sm p-8 bg-white rounded-xl shadow-sm border border-gray-200">
-        <h1 className="text-xl font-semibold text-center mb-6 text-gray-900">
-          竞品与需求分析
-        </h1>
+        <div className="flex items-center justify-center gap-2 mb-6">
+          <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-sm font-bold" style={{ background: "var(--brand-primary)" }}>
+            A
+          </div>
+          <h1 className="text-xl font-semibold text-gray-900">
+            AmaWebAgent
+          </h1>
+        </div>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <input
@@ -59,7 +64,7 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-2 px-4 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white text-sm font-medium rounded-lg transition-colors"
+            className="w-full py-2 px-4 bg-[var(--brand-accent)] hover:opacity-90 disabled:opacity-50 text-white text-sm font-medium rounded-lg transition-opacity"
           >
             {loading ? "登录中..." : "登录"}
           </button>

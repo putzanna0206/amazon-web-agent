@@ -11,6 +11,11 @@
   --color-text: #111827;
   --color-text-secondary: #6b7280;
   --color-text-muted: #9ca3af;
+
+  /* 品牌 token — 后续替换 logo/配色时只改这里 */
+  --brand-primary:   #1e293b;
+  --brand-accent:    #4f46e5;
+  --brand-bg:        #fafafa;
 }
 
 body {
