@@ -13,6 +13,15 @@ interface LocalSession {
   createdAt: number;
 }
 
+type StreamPhase = "thinking" | "calling" | "processing" | "streaming";
+
+const PHASE_LABEL: Record<StreamPhase, string> = {
+  thinking: "思考中...",
+  calling: "调用数据系统...",
+  processing: "整理结果...",
+  streaming: "",
+};
+
 const STORAGE_KEY = "fc_sessions";
 
 function loadSessions(): LocalSession[] {
@@ -61,6 +70,7 @@ export default function ChatPage() {
   const [activeId, setActiveId] = useState<string>("");
   const [input, setInput] = useState("");
   const [streamingIds, setStreamingIds] = useState<Set<string>>(new Set());
+  const [phaseMap, setPhaseMap] = useState<Map<string, StreamPhase>>(new Map());
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -97,6 +107,16 @@ export default function ChatPage() {
   const activeSession = sessions.find((s) => s.id === activeId);
   const messages = activeSession?.messages || [];
   const streaming = streamingIds.has(activeId);
+  const phase = phaseMap.get(activeId);
+
+  const setPhase = useCallback((sid: string, p: StreamPhase | null) => {
+    setPhaseMap((prev) => {
+      const next = new Map(prev);
+      if (p === null) next.delete(sid);
+      else next.set(sid, p);
+      return next;
+    });
+  }, []);
 
   const updateSession = useCallback((id: string, patch: Partial<LocalSession>) => {
     setSessions((prev) => {
@@ -148,6 +168,7 @@ export default function ChatPage() {
       setStreamingIds((prev) => new Set(prev).add(activeId));
 
       const sid = activeId;
+      setPhase(sid, "thinking");
       const userMsg: ChatMessage = { role: "user", content: msg };
       const asstMsg: ChatMessage = { role: "assistant", content: "" };
 
@@ -169,6 +190,7 @@ export default function ChatPage() {
         let fullContent = "";
         for await (const event of streamChat(agent.id, sid, msg)) {
           if (event.type === "content" && event.data?.content) {
+            if (!fullContent) setPhase(sid, "streaming");
             fullContent += event.data.content;
             const content = fullContent;
             setSessions((prev) => {
@@ -181,6 +203,10 @@ export default function ChatPage() {
               saveSessions(updated);
               return updated;
             });
+          } else if (event.type === "tool_call") {
+            setPhase(sid, "calling");
+          } else if (event.type === "tool_result") {
+            setPhase(sid, "processing");
           } else if (event.type === "done") {
             break;
           }
@@ -202,9 +228,10 @@ export default function ChatPage() {
           next.delete(sid);
           return next;
         });
+        setPhase(sid, null);
       }
     },
-    [input, streamingIds, agent, activeId]
+    [input, streamingIds, agent, activeId, setPhase]
   );
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -382,6 +409,7 @@ export default function ChatPage() {
                       key={`${activeId}-${i}`}
                       msg={msg}
                       streaming={streaming && i === messages.length - 1}
+                      phase={streaming && i === messages.length - 1 ? phase : undefined}
                     />
                   ))}
                   <div ref={messagesEndRef} />
@@ -421,7 +449,7 @@ export default function ChatPage() {
 }
 
 /* ─── MessageBubble ─── */
-function MessageBubble({ msg, streaming }: { msg: ChatMessage; streaming: boolean }) {
+function MessageBubble({ msg, streaming, phase }: { msg: ChatMessage; streaming: boolean; phase?: StreamPhase }) {
   if (msg.role === "user") {
     return (
       <div className="flex justify-end">
@@ -434,6 +462,7 @@ function MessageBubble({ msg, streaming }: { msg: ChatMessage; streaming: boolea
 
   const display = sanitize(stripThinkTags(msg.content));
   if (!display && streaming) {
+    const label = (phase && PHASE_LABEL[phase]) || PHASE_LABEL.thinking;
     return (
       <div className="flex gap-3 items-start">
         <div className="w-7 h-7 rounded-full bg-blue-50 flex items-center justify-center shrink-0 mt-0.5">
@@ -441,7 +470,7 @@ function MessageBubble({ msg, streaming }: { msg: ChatMessage; streaming: boolea
             <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
           </svg>
         </div>
-        <div className="text-sm text-gray-400 animate-pulse">思考中...</div>
+        <div className="text-sm text-gray-400 animate-pulse">{label}</div>
       </div>
     );
   }
