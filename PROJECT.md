@@ -10,7 +10,9 @@
 
 ### 定位
 
-基于 FastClaw（Fork）的亚马逊竞品分析 Agent 平台，给 3-5 个朋友浏览器访问、免费用。
+基于 FastClaw（Fork）的亚马逊竞品分析 Agent 平台，**免费引流工具，面向国内亚马逊卖家**。
+
+核心价值：**海外模型能力 + 行业工作流封装 + Sorftime 数据 = 开箱即用的 AI 调研助手。**
 
 这不是又一个亚马逊分析工具。它验证一个范式判断：
 
@@ -20,9 +22,28 @@
 
 判断标准不是"功能多全"，而是"agent 的自主判断有没有让用户少切换工具、少受模板束缚"。
 
+### 商业模式
+
+**免费引流工具 → 公众号关注 → 信任积累 → 高客单价服务**
+
+- 当前阶段：免费开放，不设门槛，目标是让尽可能多用户体验价值
+- 引流路径：用户使用 Agent → 感受到专业度 → 关注公众号 → 建立信任关系
+- 变现路径：团队/企业客户找上门 → 定制搭建服务 / 咨询 / 培训，获取技术服务费用
+- 不卖模板、不卖订阅、不做 SaaS
+
+### 核心壁垒
+
+| 壁垒 | 说明 | 可替代性 |
+|------|------|---------|
+| 海外模型代理 | 国内用户无法直接使用 Claude/GPT，你提供访问通道 | 低（技术+网络门槛） |
+| 行业工作流 | 4 个 SKILL 封装了电商分析方法论 | 中（明文可抄，但需要行业经验） |
+| Sorftime MCP 集成 | 56 个工具的封装和调用逻辑 | 中（标准接口，可自行对接） |
+| 持续实战迭代 | 你自己是卖家，每天都在用，持续优化 | 低（别人抄不走你的使用经验） |
+
 ### 用户
 
-3-5 个亚马逊卖家朋友，邀请制，免费。V1 不商业化。
+初期：亚马逊卖家朋友，免费体验。通过公众号扩散获取更多用户。
+未来：有定制需求的团队/企业客户，付费服务。
 
 ### 功能范围
 
@@ -42,11 +63,25 @@
 | 不做 | 原因 |
 |------|------|
 | 移动 App | 浏览器够用 |
-| 公网开放注册 | 只给朋友 |
-| 付费/商业化 | 6 周后再议 |
+| 付费/订阅/SaaS | 当前阶段是引流工具，不设门槛 |
 | 多 Agent | 框架支持扩展，V1 只 1 个 |
 | PDF 报告导出 | V2 |
 | 固定流程 GUI / 向导表单 | 违反 agent 范式 |
+| 卖模板 | 壁垒不够，不可规模化 |
+
+### 竞品对比
+
+| 维度 | 本项目 | Dify Cloud | Coze/扣子 |
+|------|--------|-----------|----------|
+| Agent 自主推理 | ✅ | ✅ ReAct/Function Calling | ✅ 自主推理 |
+| MCP 工具集成 | ✅ Sorftime 56 工具 | ✅ 支持 MCP | ✅ 扣子空间支持 MCP |
+| 海外模型访问 | ✅ 直接调 Claude/GPT API | ⚠️ 国内版受限 | ⚠️ 国内版受限 |
+| 品牌保护深度 | ✅ 三层防御 | ❌ 无 | ❌ 无 |
+| 部署方式 | 自托管（Mac Mini） | 云托管 | 云托管 |
+| 行业工作流 | ✅ 电商垂直 SKILL | 通用模板 | 通用模板 |
+| 自主管控 | ✅ 完全控制 | ❌ 依赖平台 | ❌ 依赖平台 |
+
+**核心差异**：Dify/Coze 是通用平台，你有垂直行业工作流 + 海外模型代理能力。但对标 Coze + Sorftime MCP 插件，纯 Agent 能力差距不大。真正的壁垒在运营侧（信任关系）和技术侧（海外模型代理）。
 
 ---
 
@@ -55,17 +90,29 @@
 ### 架构
 
 ```
-朋友浏览器 → HTTPS → 自建 Next.js (web/)
-                          ↓ /api/* (rewrites)
-                    FastClaw :18953
-                    ├─ Agent 运行时（SOUL + 4 SKILL）
-                    ├─ LLM: MiniMax M2.7 HighSpeed
-                    └─ MCP 直连: Sorftime 56 工具
+用户浏览器 → HTTPS → Mac Mini (FastClaw :18953)
+                         ├─ Agent 运行时（SOUL + 4 SKILL）
+                         ├─ LLM: MiniMax M2.7 HighSpeed
+                         └─ MCP 直连: Sorftime 56 工具
 ```
 
 两层 UI：
-- **web/**（自建 Next.js 16 + React 19）— 朋友访问的极简 chat UI + sanitize 兜底层
+- **Landing page + Chat UI**（自建 Next.js 16 + React 19）— 用户访问的品牌化入口
 - **FastClaw 内置 admin UI** — 你管理账号/agent/provider 用
+
+### 部署方案
+
+```
+Mac Mini (16G) ─── Cloudflare Tunnel ─── 自定义域名
+     │
+     ├── FastClaw daemon
+     ├── Next.js (Landing + Chat)
+     └── MCP Server (Sorftime)
+```
+
+- Mac Mini 作为服务器，Cloudflare Tunnel 暴露到公网（需网络环境支持 UDP/QUIC）
+- 备选：VPS 中转（¥30-50/月，避开局域网网络限制）
+- 域名绑定 Cloudflare，免费 HTTPS
 
 ### FastClaw Fork 改动
 
@@ -158,7 +205,7 @@ amazon-web-agent/
 | Agent ID | `agt_641dd151f236281066ee` |
 | 模型 | `minimax/MiniMax-M2.7-highspeed`（备：zhipu-glm/glm-5.1） |
 | MCP 数据源 | Sorftime（56 个工具，直连） |
-| 外网暴露 | Tailscale Funnel（Cloudflare Tunnel 待配） |
+| 外网暴露 | Cloudflare Tunnel（Mac Mini 部署时配置） |
 | 用户 | 7aoYi (super_admin) + testuser (user) |
 
 ### 运维
@@ -282,48 +329,35 @@ SOUL.md 和客服手册.md 定义"敏感问题应对"话术，教 LLM 听到敏�
 
 #### Phase 3：验证 ⏳
 
-**⚠️ 关键卡点：Phase 2 的三层防御改动从未同步到运行时。当前 agent 跑的是纯旧版。**
-
-- [ ] 同步 agents/ 到运行时（SOUL.md → 数据库，4 SKILL.md → 文件系统）
-- [ ] 复测压力测试（让会越狱的人攻击 agent，验证三层防御）
-- [ ] 根据复测结果决定 MCP schema 泄漏修复方案
+- [x] 同步 agents/ 到运行时（SOUL.md → 数据库，4 SKILL.md + TOOLS.md → 文件系统）
+- [x] 压力测试 5 轮（一般好奇 / 品牌试探 / 越狱 / 反复纠缠 / 工具真名试探）— 全部通过
+- [x] 功能验证（foldable keyboard 分析）— 正常
+- [x] MCP schema 泄漏验证 — 工具真名仅在 `<think/>` 块出现，前端 strip 后不可见，🟡 中等风险，V1 可接受
+- [ ] 朋友压力测试（让会越狱的人攻击 agent）
 - [ ] 创建朋友账号（需名单）
 - [ ] 外网暴露（Cloudflare Tunnel 或 Tailscale Funnel）
 - [ ] 设置 API 月度成本上限
 - [ ] 邀请试用 + 收集反馈
 
-### 待办明细
+#### Phase 4：产品化 🎯（当前）
 
-#### 🔴 高（阻塞验证）
+**目标**：把 Agent 从"自己用"变成"给他人用的免费引流工具"
 
-- [ ] **同步源文件到运行时**
-  - SOUL.md → 通过 FastClaw API 写入数据库（`PUT /api/agents/{id}/files/SOUL.md`）
-  - 4 个 SKILL.md → 替换 `~/.fastclaw/agents/.../skills/<目录>/SKILL.md`（保持英文目录名 + frontmatter）
-  - 客服手册.md / tools / examples → 需合并进 SOUL.md 或 TOOLS.md（FastClaw 只加载固定 7 个 bootstrap 文件）
-  - 由用户操作（涉及生产运行时）
+**第一阶段：产品打磨（当前设备）**
+- [ ] Chat UI 中等改造 — 品牌化（换标题/Logo/配色）、欢迎语引导（"输入 ASIN 或产品名称，我来帮你分析"）、侧边栏 4 个 SKILL 快捷入口、对话状态提示
+- [ ] Landing page — 品牌介绍页，链接到 Agent，用户一眼知道能做什么
 
-- [ ] **复测压力测试**
-  - 让会越狱的朋友对 agent 做 prompt 注入攻击
-  - 重点观察：数据平台名 / 工具名 / 框架名 / 模型名是否还会被诱导出来
-  - 记录每次破解的 prompt 模式
-  - **结果决定下一步走验证还是改 schema**
+**第二阶段：部署上线（Mac Mini）**
+- [ ] Mac Mini 切换网络环境，测试 Cloudflare Tunnel 连通性
+- [ ] Mac Mini 部署 FastClaw + Next.js
+- [ ] 配置 Cloudflare Tunnel + 自定义域名
+- [ ] 一键部署脚本（为后续给别人部署准备）
 
-- [ ] **决策：MCP 工具 schema 泄漏**
-  - A：Fork 加 MCP alias 层（需翻 `~/fastclaw/` 源码）
-  - B：重起 MCP proxy 做工具改名
-  - C：先验证是否真的泄漏（30 分钟），可能根本不需要 A/B
-  - **推荐先做 C**
-
-#### 🟡 中
-
-- [ ] Phase 3 其余事项（朋友账号 / 外网 / 成本上限）— 等用户提供输入
-- [ ] `backend/` 104MB 废弃代码清理
-- [ ] `web/` 部署文档补完
-
-#### 🟢 低
-
-- [ ] `git push` 推送本地 commit 到远程
-- [ ] 观察 Sorftime 新增工具时同步更新 sanitize 条目
+**第三阶段：运营验证**
+- [ ] 公众号搭建，绑定工具入口
+- [ ] 小范围让卖家朋友试用，收集反馈
+- [ ] 根据反馈迭代 Agent 工作流和界面体验
+- [ ] 观察是否有团队/企业客户找上门
 
 ### 决策记录
 
@@ -344,6 +378,13 @@ SOUL.md 和客服手册.md 定义"敏感问题应对"话术，教 LLM 听到敏�
 
 #### 话术诚实性（待决策）
 当前 SOUL 说"我们有一套自建的电商数据分析系统"——严格说是不实陈述。LLM 自己也"觉得"不该撒谎，追问几次就让步。如果要产品化，建议改成"我们对接了业界数据服务，按合作约定不便透露"。用户未决策，当前保留。
+
+#### 商业模式：免费引流而非卖模板（2026-05-03）
+分析了"卖 Agent 模板给亚马逊卖家"方向，结论是壁垒不够（方法论可抄、Dify/Coze 也有 Agent+MCP、客单价低服务成本高）。转为免费引流工具策略：
+- 工具免费开放，零门槛，目标是让用户体验价值
+- 通过公众号获取关注和信任
+- 变现靠后端服务（团队定制搭建、咨询）
+- 核心壁垒是海外模型代理能力（国内用户用不了 Claude/GPT）+ 行业工作流
 
 ### 工作日志
 
@@ -367,3 +408,11 @@ SOUL.md 和客服手册.md 定义"敏感问题应对"话术，教 LLM 听到敏�
 3. 合并 PRD + spec + 进度文档为 `PROJECT.md`（本项目百科）
 4. PRD.md、旧 spec、进度文档归档到 `docs/archive/`
 5. CLAUDE.md 精简为行为规则 + 指向 PROJECT.md 的引用
+6. MCP schema 泄漏验证——分析历史会话，工具真名仅出现在 `<think/>` 块，前端 strip 后不可见，V1 不需要 alias 层
+7. 合并客服手册进 SOUL.md、新增 TOOLS.md（数据系统+报告规范）
+8. 同步源文件到运行时——SOUL.md → 数据库（sqlite3 直接写入）、4 SKILL.md + TOOLS.md → 文件系统
+9. 压力测试 5 轮——一般好奇/品牌试探/越狱/反复纠缠/工具真名，全部通过
+10. 功能验证——foldable keyboard 分析正常，报告完整
+11. 公网部署方案调研——Cloudflare Tunnel 在当前网络（VPN）不可行（UDP 被拦截、TLS 握手失败），备选：换网络 / VPS 中转 / Mac Mini 直连
+12. 竞品对比分析——Dify/Coze 均支持 Agent 自主推理 + MCP，纯 Agent 能力差距不大，核心差异在海外模型代理和垂直工作流
+13. 商业模式讨论——从"卖模板"调整为"免费引流工具 + 后端服务变现"
