@@ -323,7 +323,7 @@ export default function ChatPage() {
           </>
         )}
       </div>
-      <DataReferencePanel visible={refPanelOpen} />
+      <DataReferencePanel visible={refPanelOpen} onSelectCommand={(text) => { setInput(text); requestAnimationFrame(() => textareaRef.current?.focus()); }} />
     </div>
   );
 }

@@ -5,6 +5,7 @@ import { useState } from "react";
 interface DataReferencePanelProps {
   visible: boolean;
   onToggle?: () => void;
+  onSelectCommand?: (text: string) => void;
 }
 
 interface Section {
@@ -74,7 +75,7 @@ const QUICK_EXAMPLES = [
   "「protein powder」CPC 多少",
 ];
 
-function CollapsibleSection({ title, items, defaultOpen }: { title: string; items: string[]; defaultOpen?: boolean }) {
+function CollapsibleSection({ title, items, defaultOpen, onItemClick }: { title: string; items: string[]; defaultOpen?: boolean; onItemClick?: (item: string) => void }) {
   const [open, setOpen] = useState(defaultOpen ?? false);
   return (
     <div style={{ marginBottom: 10 }}>
@@ -97,7 +98,21 @@ function CollapsibleSection({ title, items, defaultOpen }: { title: string; item
       {open && (
         <div style={{ paddingLeft: 16, marginTop: 2 }}>
           {items.map((item) => (
-            <div key={item} style={{ fontSize: 11, color: "var(--color-text-secondary)", lineHeight: "18px" }}>
+            <div
+              key={item}
+              onClick={onItemClick ? () => onItemClick(item) : undefined}
+              style={{
+                fontSize: 11,
+                color: onItemClick ? "var(--brand-accent)" : "var(--color-text-secondary)",
+                lineHeight: "18px",
+                cursor: onItemClick ? "pointer" : "default",
+                borderRadius: onItemClick ? 4 : 0,
+                padding: onItemClick ? "2px 4px" : 0,
+                margin: onItemClick ? "1px -4px" : 0,
+              }}
+              onMouseEnter={(e) => { if (onItemClick) e.currentTarget.style.background = "rgba(79,70,229,0.06)"; }}
+              onMouseLeave={(e) => { if (onItemClick) e.currentTarget.style.background = "none"; }}
+            >
               {item}
             </div>
           ))}
@@ -107,7 +122,7 @@ function CollapsibleSection({ title, items, defaultOpen }: { title: string; item
   );
 }
 
-export function DataReferencePanel({ visible }: DataReferencePanelProps) {
+export function DataReferencePanel({ visible, onSelectCommand }: DataReferencePanelProps) {
   if (!visible) return null;
 
   return (
@@ -143,7 +158,7 @@ export function DataReferencePanel({ visible }: DataReferencePanelProps) {
             分析模版指令
           </div>
           {SKILL_COMMANDS.map((sc) => (
-            <CollapsibleSection key={sc.skill} title={sc.skill} items={sc.commands} />
+            <CollapsibleSection key={sc.skill} title={sc.skill} items={sc.commands} onItemClick={onSelectCommand} />
           ))}
         </div>
 
@@ -151,7 +166,7 @@ export function DataReferencePanel({ visible }: DataReferencePanelProps) {
           <div style={{ fontSize: 10, fontWeight: 600, color: "var(--color-text-muted)", marginBottom: 6, textTransform: "uppercase", letterSpacing: 1 }}>
             快速查询
           </div>
-          <CollapsibleSection title="快速查询示例" items={QUICK_EXAMPLES} defaultOpen={true} />
+          <CollapsibleSection title="快速查询示例" items={QUICK_EXAMPLES} defaultOpen={true} onItemClick={onSelectCommand} />
         </div>
       </div>
     </aside>
