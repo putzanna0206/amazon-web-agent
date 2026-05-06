@@ -164,7 +164,7 @@ export default function ChatPage() {
           </div>
 
           <div style={{ padding: "0 16px 8px" }}>
-            <div className="side-label">分析方向</div>
+            <div className="side-label">分析方向 · 输出详细报告</div>
             {SKILL_PROMPTS.map((s, i) => (
               <div
                 key={s.key}

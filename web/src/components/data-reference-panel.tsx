@@ -32,47 +32,52 @@ const SKILL_COMMANDS: { skill: string; commands: string[] }[] = [
   {
     skill: "市场调研",
     commands: [
-      "帮我分析「bluetooth speaker」这个市场：搜索量、价格带、头部品牌、机会点",
-      "「wireless earbuds」的市场趋势怎么样？增长还是下滑？",
-      "分析「yoga mat」的搜索结果头部产品价格带分布",
-      "「protein powder」的拓展词有哪些细分方向？",
+      "分析「bluetooth speaker」市场：搜索量、价格带、品牌格局",
+      "「wireless earbuds」搜索趋势怎么样",
+      "「yoga mat」头部产品价格带分布",
+      "「protein powder」拓展词和细分方向",
+      "「air fryer」品类整体报告",
     ],
   },
   {
     skill: "竞品分析",
     commands: [
-      "帮我对比分析这些竞品：「B0D1QFXM7K, B0BZJTGRZG」",
-      "分析「B0CKQLY8LS」的差评痛点",
-      "这 3 个产品「ASIN1, ASIN2, ASIN3」的评论里用户最在意什么？",
-      "「B0D1QFXM7K」的流量来源关键词有哪些？",
+      "对比分析竞品「B0D1QFXM7K, B0BZJTGRZG」",
+      "「B0CKQLY8LS」的差评痛点",
+      "「B0D1QFXM7K」流量来源关键词",
+      "「B0CKQLY8LS」变体策略分析",
+      "「B0D1QFXM7K」销量趋势",
     ],
   },
   {
     skill: "用户需求",
     commands: [
-      "帮我从用户角度分析「electric toothbrush」的需求：使用场景、痛点、效用层级",
-      "「baby monitor」的用户最常抱怨什么？",
-      "分析「air fryer」买家的使用场景和购买动机",
-      "「robot vacuum」品类用户的核心需求和惊喜点",
+      "分析「electric toothbrush」用户需求：场景、痛点、效用层级",
+      "「baby monitor」用户最常抱怨什么",
+      "「air fryer」买家使用场景和购买动机",
+      "「robot vacuum」用户核心需求和价值演算",
     ],
   },
   {
     skill: "选品评估",
     commands: [
-      "帮我评估「bluetooth speaker」值不值得做：市场规模、竞争、利润空间、风险",
-      "「B0D1QFXM7K」这个产品所在的市场还有机会吗？",
-      "「portable power station」这个品类的进入难度有多大？",
-      "评估「foldable keyboard」的竞争壁垒和差异化机会",
+      "评估「bluetooth speaker」值不值得做",
+      "「B0D1QFXM7K」这个产品的市场还有机会吗",
+      "「portable power station」进入难度",
+      "「foldable keyboard」竞争壁垒和差异化机会",
     ],
   },
 ];
 
 const QUICK_EXAMPLES = [
   "「bluetooth speaker」搜索量多少",
-  "「B0D1QFXM7K」这个产品怎么样",
+  "「B0D1QFXM7K」产品详情",
   "「foldable keyboard」价格带分布",
   "「electric toothbrush」差评痛点",
   "「protein powder」CPC 多少",
+  "「yoga mat」搜索趋势",
+  "「robot vacuum」拓展词",
+  "「B0CKQLY8LS」BSR 排名",
 ];
 
 function CollapsibleSection({ title, items, defaultOpen, onItemClick }: { title: string; items: string[]; defaultOpen?: boolean; onItemClick?: (item: string) => void }) {
