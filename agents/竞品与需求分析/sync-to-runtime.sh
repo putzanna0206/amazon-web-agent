@@ -14,7 +14,7 @@ echo "=== 同步 Agent 知识源到运行时 ==="
 echo ""
 echo "--- 同步 4 个 SKILL.md ---"
 
-SKILLS=("market-research:市场调研" "competitor-analysis:竞品分析" "user-model:用户模型" "trade-model:交易模型")
+SKILLS=("market-research:市场调研" "competitor-analysis:竞品分析" "user-model:用户模型" "product-evaluation:选品评估")
 
 for pair in "${SKILLS[@]}"; do
   dir="${pair%%:*}"
