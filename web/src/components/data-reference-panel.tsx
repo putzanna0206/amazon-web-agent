@@ -168,7 +168,7 @@ export function DataReferencePanel({ visible, onSelectCommand }: DataReferencePa
       </div>
 
       <div style={{ flex: 1, overflow: "auto", padding: "0 14px 16px" }}>
-        <div style={{ fontSize: 10, fontWeight: 600, color: "var(--color-text-muted)", marginBottom: 6, textTransform: "uppercase", letterSpacing: 1 }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: "var(--color-text)", marginBottom: 8, letterSpacing: 0.5 }}>
           可查询数据
         </div>
         {DATA_SECTIONS.map((sec) => (
@@ -176,7 +176,7 @@ export function DataReferencePanel({ visible, onSelectCommand }: DataReferencePa
         ))}
 
         <div style={{ borderTop: "1px solid var(--color-border)", marginTop: 8, paddingTop: 10 }}>
-          <div style={{ fontSize: 10, fontWeight: 600, color: "var(--color-text-muted)", marginBottom: 6, textTransform: "uppercase", letterSpacing: 1 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: "var(--color-text)", marginBottom: 8, letterSpacing: 0.5 }}>
             分析模版指令
           </div>
           {SKILL_COMMANDS.map((sc) => (
@@ -185,7 +185,7 @@ export function DataReferencePanel({ visible, onSelectCommand }: DataReferencePa
         </div>
 
         <div style={{ borderTop: "1px solid var(--color-border)", marginTop: 8, paddingTop: 10 }}>
-          <div style={{ fontSize: 10, fontWeight: 600, color: "var(--color-text-muted)", marginBottom: 6, textTransform: "uppercase", letterSpacing: 1 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: "var(--color-text)", marginBottom: 8, letterSpacing: 0.5 }}>
             快速查询
           </div>
           <CollapsibleSection title="快速查询示例" items={QUICK_EXAMPLES} defaultOpen={true} onItemClick={onSelectCommand} />
