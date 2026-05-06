@@ -165,25 +165,35 @@ export default function ChatPage() {
 
           <div style={{ padding: "0 16px 8px" }}>
             <div className="side-label">选择模板 · 输出详细报告</div>
-            {SKILL_PROMPTS.map((s, i) => (
-              <div
-                key={s.key}
-                className={`side-link${i === 0 ? " active" : ""}`}
-                onClick={() => {
-                  const keyword = prompt(s.placeholder ?? "请输入关键词或ASIN");
-                  if (!keyword?.trim()) return;
-                  const filled = s.template.replace(/输入关键词或ASIN|输入关键词|输入ASIN/g, keyword.trim());
-                  setInput(filled);
-                  requestAnimationFrame(() => textareaRef.current?.focus());
-                }}
-              >
-                <span className="mini-dot"></span>
-                <div>
-                  <div>{s.label}</div>
-                  <div style={{ fontSize: 10, color: "var(--color-text-muted)", marginTop: 1 }}>点击选择模板，输入关键词开始</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {SKILL_PROMPTS.map((s, i) => (
+                <div
+                  key={s.key}
+                  onClick={() => {
+                    const keyword = prompt(s.placeholder ?? "请输入关键词或ASIN");
+                    if (!keyword?.trim()) return;
+                    const filled = s.template.replace(/输入关键词或ASIN|输入关键词|输入ASIN/g, keyword.trim());
+                    setInput(filled);
+                    requestAnimationFrame(() => textareaRef.current?.focus());
+                  }}
+                  style={{
+                    padding: "8px 12px",
+                    borderRadius: 8,
+                    fontSize: 13,
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    background: i === 0 ? "var(--color-sidebar-hover)" : "transparent",
+                    color: "var(--color-text)",
+                    border: "1px solid var(--color-border)",
+                    transition: "background 0.15s",
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = "var(--color-sidebar-hover)"; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = i === 0 ? "var(--color-sidebar-hover)" : "transparent"; }}
+                >
+                  {s.label}
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
 
           <div style={{ padding: "0 16px 8px" }}>
