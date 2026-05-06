@@ -182,7 +182,7 @@ export default function ChatPage() {
                     fontSize: 13,
                     fontWeight: 600,
                     cursor: "pointer",
-                    background: "var(--brand-primary)",
+                    background: "var(--brand-accent)",
                     color: "white",
                     border: "none",
                     transition: "opacity 0.15s",

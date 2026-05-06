@@ -11,17 +11,16 @@ describe("DataReferencePanel", () => {
     render(<DataReferencePanel visible={true} />);
 
     expect(screen.getByText("选择指令开始搜索")).toBeInTheDocument();
-    expect(screen.getByText("关键词类")).toBeInTheDocument();
+    expect(screen.getByText("关键词查询")).toBeInTheDocument();
     expect(screen.getByText("市场调研")).toBeInTheDocument();
   });
 
-  it("expands section and shows items on click", async () => {
+  it("expands section and shows command items on click", async () => {
     render(<DataReferencePanel visible={true} />);
 
     expect(screen.queryByText(/月搜索量/)).not.toBeInTheDocument();
 
-    const keywordBtn = screen.getByText("关键词类");
-    await userEvent.click(keywordBtn);
+    await userEvent.click(screen.getByText("关键词查询"));
 
     expect(screen.getByText(/月搜索量/)).toBeInTheDocument();
   });
@@ -38,13 +37,12 @@ describe("DataReferencePanel", () => {
     expect(screen.queryByText("选择指令开始搜索")).not.toBeInTheDocument();
   });
 
-  it("expands skill commands with [输入关键词] placeholder on click", async () => {
+  it("expands skill commands on click", async () => {
     render(<DataReferencePanel visible={true} />);
 
     expect(screen.queryByText(/\[输入关键词\].*市场/)).not.toBeInTheDocument();
 
-    const marketBtn = screen.getByText("市场调研");
-    await userEvent.click(marketBtn);
+    await userEvent.click(screen.getByText("市场调研"));
 
     expect(screen.getByText(/\[输入关键词\].*市场/)).toBeInTheDocument();
   });
