@@ -19,10 +19,10 @@ const PHASE_LABEL: Record<StreamPhase, string> = {
 };
 
 const QUICK_CARDS = [
-  { label: "市场调研", desc: "选择调研模版，输出详细报告", text: "帮我分析「bluetooth speaker」这个市场：搜索量、价格带、头部品牌、机会点" },
-  { label: "竞品分析", desc: "选择调研模版，输出详细报告", text: "帮我对比分析这些竞品：「B0D1QFXM7K, B0BZJTGRZG」" },
-  { label: "用户需求", desc: "选择调研模版，输出详细报告", text: "帮我从用户角度分析「electric toothbrush」的需求：使用场景、痛点、效用层级" },
-  { label: "选品评估", desc: "选择调研模版，输出详细报告", text: "帮我评估「bluetooth speaker」值不值得做：市场规模、竞争、利润空间、风险" },
+  { label: "市场调研", desc: "选择模板 → 输入关键词 → 输出报告", text: "帮我分析「bluetooth speaker」这个市场：搜索量、价格带、头部品牌、机会点" },
+  { label: "竞品分析", desc: "选择模板 → 输入ASIN → 输出报告", text: "帮我对比分析这些竞品：「B0D1QFXM7K, B0BZJTGRZG」" },
+  { label: "用户需求", desc: "选择模板 → 输入关键词 → 输出报告", text: "帮我从用户角度分析「electric toothbrush」的需求：使用场景、痛点、效用层级" },
+  { label: "选品评估", desc: "选择模板 → 输入关键词/ASIN → 输出报告", text: "帮我评估「bluetooth speaker」值不值得做：市场规模、竞争、利润空间、风险" },
 ];
 
 const SKILL_PROMPTS = [
@@ -164,7 +164,7 @@ export default function ChatPage() {
           </div>
 
           <div style={{ padding: "0 16px 8px" }}>
-            <div className="side-label">分析方向 · 输出详细报告</div>
+            <div className="side-label">选择模板 · 输出详细报告</div>
             {SKILL_PROMPTS.map((s, i) => (
               <div
                 key={s.key}
@@ -177,7 +177,11 @@ export default function ChatPage() {
                   requestAnimationFrame(() => textareaRef.current?.focus());
                 }}
               >
-                <span className="mini-dot"></span>{s.label}
+                <span className="mini-dot"></span>
+                <div>
+                  <div>{s.label}</div>
+                  <div style={{ fontSize: 10, color: "var(--color-text-muted)", marginTop: 1 }}>点击选择模板，输入关键词开始</div>
+                </div>
               </div>
             ))}
           </div>
@@ -251,9 +255,9 @@ export default function ChatPage() {
               <span className="mini-dot" style={{ width: 6, height: 6, background: "var(--brand-accent)" }}></span>
               ready for analysis
             </div>
-            <h1 style={{ fontSize: 30, fontWeight: 600, letterSpacing: "-0.02em", marginBottom: 8 }}>把一个真实运营问题交给 Agent</h1>
+            <h1 style={{ fontSize: 30, fontWeight: 600, letterSpacing: "-0.02em", marginBottom: 8 }}>选择模板开始分析</h1>
             <p style={{ color: "var(--color-text-secondary)", fontSize: 15, marginBottom: 28, textAlign: "center", maxWidth: 520 }}>
-              从一个自然语言问题开始，输入关键词、品类、ASIN 或直接写一个完整问题。
+              点击下方模板，输入关键词或 ASIN，自动输出完整分析报告。也可以直接在输入框提问。
             </p>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 12, width: "100%", maxWidth: 560, marginBottom: 24 }}>
               {QUICK_CARDS.map((q) => (
