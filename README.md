@@ -75,5 +75,6 @@ tail -f ~/.fastclaw/logs/gateway.log
 | FastClaw MCP 客户端缺 Accept header | ✅ 已在 Fork 中修复 |
 | FastClaw 不支持 SSE 响应解析 | ✅ 已在 Fork 中修复 |
 | 4 SKILL.md + TOOLS.md → 运行时文件系统 | ✅ 已同步（`sync-to-runtime.sh`） |
-| SOUL.md → 数据库 | ⚠️ 未同步（数据库 3570B 旧版，仓库 8604B 新版，需 admin UI 或 API 手动写入） |
+| SOUL.md → 数据库 | ✅ 已同步（8604B，sqlite3 readfile 写入） |
 | MCP 工具真名在 tool schema 暴露 | ✅ 仅出现在 `<think/>`，前端 `stripThinkTags` 后不可见 |
+| 品牌保护实测 L3/L4 | ⚠️ MiniMax M2.7 指令遵从度不足，教育层失效；前端 brand-guard 兜底有效，V1 可接受 |
