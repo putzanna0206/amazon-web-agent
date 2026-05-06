@@ -3,17 +3,12 @@
 import React from "react";
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useAuth } from "@/lib/auth";
-import { streamChat, ChatMessage } from "@/lib/api";
+import { type ChatMessage } from "@/lib/api";
 import { useRouter } from "next/navigation";
-
-interface LocalSession {
-  id: string;
-  title: string;
-  messages: ChatMessage[];
-  createdAt: number;
-}
-
-type StreamPhase = "thinking" | "calling" | "processing" | "streaming";
+import { apply as applyBrandGuard } from "@/lib/brand-guard";
+import { useSessions } from "@/lib/session-store";
+import { runChatTurn, type StreamPhase } from "@/lib/run-chat-turn";
+import { MarkdownText, stripThinkTags } from "@/lib/markdown";
 
 const PHASE_LABEL: Record<StreamPhase, string> = {
   thinking: "思考中...",
@@ -22,52 +17,33 @@ const PHASE_LABEL: Record<StreamPhase, string> = {
   streaming: "",
 };
 
-const STORAGE_KEY = "fc_sessions";
-
-function loadSessions(): LocalSession[] {
-  if (typeof window === "undefined") return [];
-  try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
-  } catch {
-    return [];
-  }
-}
-
-function saveSessions(sessions: LocalSession[]) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions));
-}
-
-function genId() {
-  return `s-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-}
-
-const EXAMPLE_PROMPTS = [
-  { label: "市场调研", text: "帮我分析 bluetooth speaker 这个品类的市场概况" },
-  { label: "竞品对比", text: "对比分析这几款产品: B0D1QFXM7K, B0BZJTGRZG, B0CKQLY8LS" },
-  { label: "关键词分析", text: "查一下 portable power station 的搜索量和趋势" },
-  { label: "用户痛点", text: "分析 electric toothbrush 品类用户的差评痛点" },
+const QUICK_CARDS = [
+  { label: "市场调研", desc: "关键词/品类 → 搜索量、趋势、价格带、品牌格局", text: "帮我分析 bluetooth speaker 这个品类的市场概况" },
+  { label: "竞品分析", desc: "ASIN/链接 → 产品对比、评论、痛点", text: "对比分析这几款产品: B0D1QFXM7K, B0BZJTGRZG, B0CKQLY8LS" },
+  { label: "用户需求", desc: "用户行为/评价 → 使用场景、效用层级、价值演算", text: "分析 electric toothbrush 品类用户的差评痛点" },
+  { label: "交易优化", desc: "定价/转化/成本 → 交易成本诊断、定价策略", text: "查一下 portable power station 的搜索量和趋势" },
 ];
 
 const SKILL_PROMPTS = [
-  { key: "market", icon: "📊", label: "市场调研",
-    template: "帮我分析「」这个市场：搜索量、价格带、头部品牌、机会点",
+  { key: "market", label: "市场调研",
+    template: `帮我分析「」这个市场：搜索量、价格带、头部品牌、机会点`,
     cursorOffset: 7 },
-  { key: "comp", icon: "🔍", label: "竞品分析",
+  { key: "comp", label: "竞品分析",
     template: "帮我拆解这个竞品：",
     cursorOffset: 10 },
-  { key: "user", icon: "👥", label: "用户需求",
-    template: "帮我从用户角度解构「」的需求：使用场景、痛点、效用层级",
+  { key: "user", label: "用户需求",
+    template: `帮我从用户角度解构「」的需求：使用场景、痛点、效用层级`,
     cursorOffset: 9 },
-  { key: "trade", icon: "💰", label: "交易优化",
-    template: "帮我诊断「」的转化与定价问题：交易成本、定价策略",
+  { key: "trade", label: "交易优化",
+    template: `帮我诊断「」的转化与定价问题：交易成本、定价策略`,
     cursorOffset: 7 },
 ];
 
 export default function ChatPage() {
   const { user, agent, loading, logout } = useAuth();
   const router = useRouter();
-  const [sessions, setSessions] = useState<LocalSession[]>([]);
-  const [activeId, setActiveId] = useState<string>("");
+  const store = useSessions();
+  const { sessions, activeId, activeSession } = store;
   const [input, setInput] = useState("");
   const [streamingIds, setStreamingIds] = useState<Set<string>>(new Set());
   const [phaseMap, setPhaseMap] = useState<Map<string, StreamPhase>>(new Map());
@@ -75,36 +51,14 @@ export default function ChatPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // Redirect if not logged in
   useEffect(() => {
     if (!loading && !user) router.push("/login");
   }, [user, loading, router]);
 
-  // Load sessions from localStorage on mount
-  useEffect(() => {
-    const stored = loadSessions();
-    setSessions(stored);
-    if (stored.length > 0) {
-      setActiveId(stored[0].id);
-    }
-  }, []);
-
-  // Create initial session if none exist
-  useEffect(() => {
-    if (sessions.length > 0 || !agent) return;
-    const id = genId();
-    const session: LocalSession = { id, title: "新对话", messages: [], createdAt: Date.now() };
-    setSessions([session]);
-    setActiveId(id);
-    saveSessions([session]);
-  }, [agent, sessions.length]);
-
-  // Auto-scroll
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [sessions, activeId]);
 
-  const activeSession = sessions.find((s) => s.id === activeId);
   const messages = activeSession?.messages || [];
   const streaming = streamingIds.has(activeId);
   const phase = phaseMap.get(activeId);
@@ -118,46 +72,19 @@ export default function ChatPage() {
     });
   }, []);
 
-  const updateSession = useCallback((id: string, patch: Partial<LocalSession>) => {
-    setSessions((prev) => {
-      const updated = prev.map((s) => (s.id === id ? { ...s, ...patch } : s));
-      saveSessions(updated);
-      return updated;
-    });
-  }, []);
-
   const newChat = useCallback(() => {
-    const id = genId();
-    const session: LocalSession = { id, title: "新对话", messages: [], createdAt: Date.now() };
-    setSessions((prev) => {
-      const updated = [session, ...prev];
-      saveSessions(updated);
-      return updated;
-    });
-    setActiveId(id);
+    store.create();
     setInput("");
-  }, []);
+  }, [store]);
 
   const switchSession = useCallback((id: string) => {
-    setActiveId(id);
+    store.setActive(id);
     setInput("");
-  }, []);
+  }, [store]);
 
-  const removeSession = useCallback(
-    (id: string) => {
-      setSessions((prev) => {
-        const updated = prev.filter((s) => s.id !== id);
-        saveSessions(updated);
-        if (id === activeId && updated.length > 0) {
-          setActiveId(updated[0].id);
-        } else if (updated.length === 0) {
-          // Will trigger the useEffect to create a new one
-        }
-        return updated;
-      });
-    },
-    [activeId]
-  );
+  const removeSession = useCallback((id: string) => {
+    store.remove(id);
+  }, [store]);
 
   const sendMessage = useCallback(
     async (text?: string) => {
@@ -168,60 +95,33 @@ export default function ChatPage() {
       setStreamingIds((prev) => new Set(prev).add(activeId));
 
       const sid = activeId;
-      setPhase(sid, "thinking");
-      const userMsg: ChatMessage = { role: "user", content: msg };
-      const asstMsg: ChatMessage = { role: "assistant", content: "" };
+      store.appendMessages(sid, [
+        { role: "user", content: msg },
+        { role: "assistant", content: "" },
+      ]);
 
-      setSessions((prev) => {
-        const updated = prev.map((s) =>
-          s.id === sid
-            ? {
-                ...s,
-                title: s.messages.length === 0 ? msg.slice(0, 30) : s.title,
-                messages: [...s.messages, userMsg, asstMsg],
-              }
-            : s
-        );
-        saveSessions(updated);
-        return updated;
-      });
+      let fullContent = "";
+      const files: { path: string; name: string }[] = [];
 
       try {
-        let fullContent = "";
-        for await (const event of streamChat(agent.id, sid, msg)) {
-          if (event.type === "content" && event.data?.content) {
-            if (!fullContent) setPhase(sid, "streaming");
-            fullContent += event.data.content;
-            const content = fullContent;
-            setSessions((prev) => {
-              const updated = prev.map((s) => {
-                if (s.id !== sid) return s;
-                const msgs = [...s.messages];
-                msgs[msgs.length - 1] = { role: "assistant", content };
-                return { ...s, messages: msgs };
-              });
-              saveSessions(updated);
-              return updated;
+        for await (const ev of runChatTurn({ agentId: agent.id, sessionId: sid, message: msg })) {
+          if (ev.type === "phase") {
+            setPhase(sid, ev.phase);
+          } else if (ev.type === "content") {
+            fullContent += ev.chunk;
+            store.patchLastMessage(sid, {
+              content: fullContent,
+              files: files.length > 0 ? [...files] : undefined,
             });
-          } else if (event.type === "tool_call") {
-            setPhase(sid, "calling");
-          } else if (event.type === "tool_result") {
-            setPhase(sid, "processing");
-          } else if (event.type === "done") {
+          } else if (ev.type === "file") {
+            files.push({ path: ev.path, name: ev.name });
+            store.patchLastMessage(sid, { content: fullContent, files: [...files] });
+          } else if (ev.type === "error") {
+            store.patchLastMessage(sid, { content: "请求失败，请重试。" });
+          } else if (ev.type === "done") {
             break;
           }
         }
-      } catch {
-        setSessions((prev) => {
-          const updated = prev.map((s) => {
-            if (s.id !== sid) return s;
-            const msgs = [...s.messages];
-            msgs[msgs.length - 1] = { role: "assistant", content: "请求失败，请重试。" };
-            return { ...s, messages: msgs };
-          });
-          saveSessions(updated);
-          return updated;
-        });
       } finally {
         setStreamingIds((prev) => {
           const next = new Set(prev);
@@ -231,7 +131,7 @@ export default function ChatPage() {
         setPhase(sid, null);
       }
     },
-    [input, streamingIds, agent, activeId, setPhase]
+    [input, streamingIds, agent, activeId, setPhase, store]
   );
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -243,36 +143,30 @@ export default function ChatPage() {
 
   if (loading) {
     return (
-      <div className="h-screen flex items-center justify-center">
-        <div className="text-gray-400 text-sm">加载中...</div>
+      <div style={{ height: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div style={{ color: "var(--color-text-muted)", fontSize: 14 }}>加载中...</div>
       </div>
     );
   }
   if (!user || !agent) return null;
 
   return (
-    <div className="h-screen flex">
-      {/* Sidebar */}
+    <div style={{ height: "100vh", display: "flex" }}>
       {sidebarOpen && (
-        <aside className="w-[260px] flex-shrink-0 bg-gray-50 flex flex-col border-r border-gray-200">
-          <div className="p-3">
-            <button
-              onClick={newChat}
-              className="w-full flex items-center gap-2 px-3 py-2.5 rounded-lg border border-gray-200 hover:bg-gray-100 text-sm transition-colors"
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <line x1="12" y1="5" x2="12" y2="19" />
-                <line x1="5" y1="12" x2="19" y2="12" />
-              </svg>
-              新对话
+        <aside className="chat-sidebar" style={{ width: 260, flexShrink: 0, display: "flex", flexDirection: "column" }}>
+          <div style={{ padding: 16 }}>
+            <button onClick={newChat} className="new-chat-btn">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
+              新建分析
             </button>
           </div>
 
-          <div className="px-3 pb-2">
-            <div className="text-xs text-gray-400 uppercase tracking-wider mb-1.5 px-2">快速开始</div>
-            {SKILL_PROMPTS.map((s) => (
-              <button
+          <div style={{ padding: "0 16px 8px" }}>
+            <div className="side-label">分析方向</div>
+            {SKILL_PROMPTS.map((s, i) => (
+              <div
                 key={s.key}
+                className={`side-link${i === 0 ? " active" : ""}`}
                 onClick={() => {
                   setInput(s.template);
                   requestAnimationFrame(() => {
@@ -280,134 +174,114 @@ export default function ChatPage() {
                     textareaRef.current?.setSelectionRange(s.cursorOffset, s.cursorOffset);
                   });
                 }}
-                className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm text-gray-600 hover:bg-gray-100 transition-colors"
               >
-                <span>{s.icon}</span>
-                <span>{s.label}</span>
-              </button>
+                <span className="mini-dot"></span>{s.label}
+              </div>
             ))}
           </div>
 
-          <div className="flex-1 overflow-y-auto px-2">
+          <div style={{ padding: "0 16px 8px" }}>
+            <div className="side-label">最近任务</div>
+          </div>
+          <div style={{ flex: 1, overflow: "auto", padding: "0 8px" }}>
             {sessions.map((s) => (
               <div
                 key={s.id}
                 onClick={() => switchSession(s.id)}
-                className={`group flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm cursor-pointer mb-0.5 transition-colors ${
-                  s.id === activeId ? "bg-gray-200" : "hover:bg-gray-100"
-                }`}
+                className={`session-item${s.id === activeId ? " active" : ""}`}
               >
-                <span className="truncate flex-1 text-gray-700">{s.title}</span>
+                <span className="mini-dot"></span>
+                <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.title}</span>
                 <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    removeSession(s.id);
-                  }}
-                  className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-500 transition-opacity shrink-0"
+                  onClick={(e) => { e.stopPropagation(); removeSession(s.id); }}
+                  style={{ opacity: "0", flexShrink: 0, border: "none", background: "none", cursor: "pointer", color: "var(--color-text-muted)", padding: 2 }}
+                  onMouseEnter={(e) => { e.currentTarget.style.opacity = "1"; e.currentTarget.style.color = "#ef4444"; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.opacity = "0"; e.currentTarget.style.color = "var(--color-text-muted)"; }}
                 >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <line x1="18" y1="6" x2="6" y2="18" />
-                    <line x1="6" y1="6" x2="18" y2="18" />
-                  </svg>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
                 </button>
               </div>
             ))}
           </div>
 
-          <div className="p-3 border-t border-gray-200">
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-500">{user.username}</span>
-              <button
-                onClick={() => {
-                  logout();
-                  router.push("/login");
-                }}
-                className="text-xs text-gray-400 hover:text-gray-600"
-              >
-                退出
-              </button>
-            </div>
+          <div style={{ padding: 12, borderTop: "1px solid var(--color-border)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <span style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>{user.username}</span>
+            <button
+              onClick={() => { logout(); router.push("/login"); }}
+              style={{ fontSize: 12, color: "var(--color-text-muted)", border: "none", background: "none", cursor: "pointer" }}
+            >
+              退出
+            </button>
           </div>
         </aside>
       )}
 
-      {/* Main */}
-      <div className="flex-1 flex flex-col min-w-0 h-full">
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, height: "100%" }}>
         {/* Top bar */}
-        <div className="h-12 flex items-center px-4 border-b border-gray-200 shrink-0">
+        <div style={{ height: 44, display: "flex", alignItems: "center", padding: "0 16px", borderBottom: "1px solid var(--color-border)", flexShrink: 0 }}>
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="p-1.5 rounded-lg hover:bg-gray-100 mr-3"
+            style={{ padding: 6, borderRadius: 8, border: "none", background: "none", cursor: "pointer", marginRight: 12, color: "var(--color-text)" }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = "var(--color-sidebar-hover)"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = "none"; }}
           >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <line x1="3" y1="6" x2="21" y2="6" />
-              <line x1="3" y1="12" x2="21" y2="12" />
-              <line x1="3" y1="18" x2="21" y2="18" />
-            </svg>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="18" x2="21" y2="18" /></svg>
           </button>
-          <div className="flex items-center gap-2">
-            <div
-              className="w-6 h-6 rounded flex items-center justify-center text-white text-xs font-bold"
-              style={{ background: "var(--brand-primary)" }}
-            >
-              A
-            </div>
-            <span className="text-sm font-semibold text-gray-800">AmaWebAgent</span>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ width: 24, height: 24, display: "grid", placeItems: "center", borderRadius: 6, background: "var(--brand-primary)", color: "white", fontSize: 11, fontWeight: 700, fontFamily: "ui-monospace, monospace" }}>AW</span>
+            <span style={{ fontSize: 13, fontWeight: 600 }}>AmaWebAgent</span>
           </div>
         </div>
 
         {messages.length === 0 ? (
-          /* ── Empty state: centered welcome + input ── */
-          <div className="flex-1 flex flex-col items-center justify-center px-6 pb-20">
-            <h1 className="text-2xl font-semibold text-gray-800 mb-2">AmaWebAgent</h1>
-            <p className="text-gray-400 text-sm mb-8">一句话出一份亚马逊调研报告，输入关键词、ASIN 或问题开始</p>
-            <div className="grid grid-cols-2 gap-3 w-full max-w-lg mb-8">
-              {EXAMPLE_PROMPTS.map((p, i) => (
-                <button
-                  key={i}
-                  onClick={() => setInput(p.text)}
-                  className="text-left px-4 py-3 rounded-xl border border-gray-200 hover:bg-gray-50 transition-colors bg-white"
-                >
-                  <div className="text-xs font-medium mb-1" style={{ color: "var(--brand-accent)" }}>{p.label}</div>
-                  <div className="text-sm text-gray-500 line-clamp-2">{p.text}</div>
+          /* Empty state */
+          <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "0 24px 80px" }}>
+            <div style={{ marginBottom: 6, display: "inline-flex", alignItems: "center", gap: 8, height: 28, padding: "0 10px", border: "1px solid var(--color-border)", borderRadius: 999, background: "white", fontSize: 12, fontFamily: "ui-monospace, monospace", color: "var(--color-text-secondary)" }}>
+              <span className="mini-dot" style={{ width: 6, height: 6, background: "var(--brand-accent)" }}></span>
+              ready for analysis
+            </div>
+            <h1 style={{ fontSize: 30, fontWeight: 600, letterSpacing: "-0.02em", marginBottom: 8 }}>把一个真实运营问题交给 Agent</h1>
+            <p style={{ color: "var(--color-text-secondary)", fontSize: 15, marginBottom: 28, textAlign: "center", maxWidth: 520 }}>
+              从一个自然语言问题开始，输入关键词、品类、ASIN 或直接写一个完整问题。
+            </p>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 12, width: "100%", maxWidth: 560, marginBottom: 24 }}>
+              {QUICK_CARDS.map((q) => (
+                <button key={q.label} className="quick-card" onClick={() => setInput(q.text)}>
+                  <div className="card-label">{q.label}</div>
+                  <div className="card-desc">{q.desc}</div>
                 </button>
               ))}
             </div>
-            <div className="w-full max-w-lg relative">
-              <textarea
-                ref={textareaRef}
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder="输入消息..."
-                disabled={streaming}
-                rows={1}
-                className="w-full resize-none rounded-xl border border-gray-200 px-4 py-3 pr-12 text-sm focus:outline-none focus:ring-2 disabled:bg-gray-50 max-h-[200px] bg-white"
-                style={{ "--tw-ring-color": "var(--brand-accent)", "--tw-border-color": "var(--brand-accent)" } as React.CSSProperties}
-              />
-              <button
-                onClick={() => sendMessage()}
-                disabled={streaming || !input.trim()}
-                className="absolute right-3 bottom-3 p-1.5 rounded-lg text-white hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity"
-                style={{ background: "var(--brand-accent)" }}
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <line x1="22" y1="2" x2="11" y2="13" />
-                  <polygon points="22 2 15 22 11 13 2 9 22 2" />
-                </svg>
-              </button>
+            <div style={{ width: "100%", maxWidth: 560 }}>
+              <div className="composer">
+                <textarea
+                  ref={textareaRef}
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder="输入关键词、ASIN 或运营问题..."
+                  disabled={streaming}
+                />
+                <div className="composer-bar">
+                  <span className="composer-hint">Enter 发送 · Shift Enter 换行</span>
+                  <button className="send-btn" onClick={() => sendMessage()} disabled={streaming || !input.trim()}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="22" y1="2" x2="11" y2="13" /><polygon points="22 2 15 22 11 13 2 9 22 2" /></svg>
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         ) : (
-          /* ── Chat state: messages scroll + input at bottom ── */
+          /* Message view */
           <>
-            <div className="flex-1 overflow-y-auto">
-              <div className="max-w-[720px] mx-auto px-6 py-6">
-                <div className="space-y-6">
+            <div style={{ flex: 1, overflowY: "auto" }}>
+              <div style={{ maxWidth: 720, margin: "0 auto", padding: "24px 24px" }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
                   {messages.map((msg, i) => (
                     <MessageBubble
                       key={`${activeId}-${i}`}
                       msg={msg}
+                      agentId={agent.id}
                       streaming={streaming && i === messages.length - 1}
                       phase={streaming && i === messages.length - 1 ? phase : undefined}
                     />
@@ -416,29 +290,23 @@ export default function ChatPage() {
                 </div>
               </div>
             </div>
-            <div className="shrink-0 border-t border-gray-200 bg-white px-4 py-3">
-              <div className="max-w-[720px] mx-auto relative">
-                <textarea
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  placeholder="输入消息..."
-                  disabled={streaming}
-                  rows={1}
-                  className="w-full resize-none rounded-xl border border-gray-200 px-4 py-3 pr-12 text-sm focus:outline-none focus:ring-2 disabled:bg-gray-50 max-h-[200px] bg-white"
-                style={{ "--tw-ring-color": "var(--brand-accent)", "--tw-border-color": "var(--brand-accent)" } as React.CSSProperties}
-                />
-                <button
-                  onClick={() => sendMessage()}
-                  disabled={streaming || !input.trim()}
-                  className="absolute right-3 bottom-3 p-1.5 rounded-lg text-white hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity"
-                style={{ background: "var(--brand-accent)" }}
-                >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <line x1="22" y1="2" x2="11" y2="13" />
-                    <polygon points="22 2 15 22 11 13 2 9 22 2" />
-                  </svg>
-                </button>
+            <div style={{ flexShrink: 0, borderTop: "1px solid var(--color-border)", padding: "12px 16px" }}>
+              <div style={{ maxWidth: 720, margin: "0 auto" }}>
+                <div className="composer">
+                  <textarea
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    placeholder="输入消息..."
+                    disabled={streaming}
+                  />
+                  <div className="composer-bar">
+                    <span className="composer-hint">Enter 发送 · Shift Enter 换行</span>
+                    <button className="send-btn" onClick={() => sendMessage()} disabled={streaming || !input.trim()}>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="22" y1="2" x2="11" y2="13" /><polygon points="22 2 15 22 11 13 2 9 22 2" /></svg>
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           </>
@@ -448,264 +316,58 @@ export default function ChatPage() {
   );
 }
 
-/* ─── MessageBubble ─── */
-function MessageBubble({ msg, streaming, phase }: { msg: ChatMessage; streaming: boolean; phase?: StreamPhase }) {
+function MessageBubble({ msg, agentId, streaming, phase }: { msg: ChatMessage; agentId: string; streaming: boolean; phase?: StreamPhase }) {
   if (msg.role === "user") {
     return (
-      <div className="flex justify-end">
-        <div className="max-w-[85%] bg-gray-100 rounded-2xl px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap text-gray-800">
+      <div style={{ display: "flex", justifyContent: "flex-end" }}>
+        <div style={{ maxWidth: "85%", background: "var(--color-user-bubble)", borderRadius: 16, padding: "10px 16px", fontSize: 14, lineHeight: 1.6, whiteSpace: "pre-wrap" }}>
           {msg.content}
         </div>
       </div>
     );
   }
 
-  const display = sanitize(stripThinkTags(msg.content));
+  const display = applyBrandGuard(stripThinkTags(msg.content));
   if (!display && streaming) {
     const label = (phase && PHASE_LABEL[phase]) || PHASE_LABEL.thinking;
     return (
-      <div className="flex gap-3 items-start">
-        <div className="w-7 h-7 rounded-full bg-blue-50 flex items-center justify-center shrink-0 mt-0.5">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-blue-600">
-            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
-          </svg>
+      <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+        <div style={{ width: 28, height: 28, borderRadius: "50%", background: "rgba(79,70,229,0.08)", display: "grid", placeItems: "center", flexShrink: 0, marginTop: 2 }}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--brand-accent)" strokeWidth="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" /></svg>
         </div>
-        <div className="text-sm text-gray-400 animate-pulse">{label}</div>
+        <div style={{ fontSize: 14, color: "var(--color-text-muted)", animation: "pulse 2s ease-in-out infinite" }}>{label}</div>
       </div>
     );
   }
 
   return (
-    <div className="flex gap-3 items-start">
-      <div className="w-7 h-7 rounded-full bg-blue-50 flex items-center justify-center shrink-0 mt-0.5">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-blue-600">
-          <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
-        </svg>
+    <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+      <div style={{ width: 28, height: 28, borderRadius: "50%", background: "rgba(79,70,229,0.08)", display: "grid", placeItems: "center", flexShrink: 0, marginTop: 2 }}>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--brand-accent)" strokeWidth="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" /></svg>
       </div>
-      <div className="flex-1 text-sm leading-relaxed text-gray-800 overflow-hidden">
+      <div style={{ flex: 1, fontSize: 14, lineHeight: 1.6, overflow: "hidden" }}>
         <MarkdownText text={display} streaming={streaming} />
+        {msg.files && msg.files.length > 0 && (
+          <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 8 }}>
+            {msg.files.map((f) => (
+              <a
+                key={f.path}
+                href={`/api/agents/${agentId}/files/${encodeURIComponent(f.path)}`}
+                download={f.name}
+                style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "10px 16px", background: "rgba(79,70,229,0.06)", borderRadius: 12, fontSize: 13, fontWeight: 500, color: "var(--brand-accent)", textDecoration: "none" }}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                  <polyline points="14 2 14 8 20 8" />
+                  <line x1="12" y1="18" x2="12" y2="12" />
+                  <polyline points="9 15 12 18 15 15" />
+                </svg>
+                {f.name}
+              </a>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
-}
-
-/* ─── Markdown ─── */
-const FILTERED_WORDS: [RegExp, string][] = [
-  // ═══ 数据源品牌（含拆字 / 加空格 / 大小写变体）═══
-  [/S[\s\-_·.]*o[\s\-_·.]*r[\s\-_·.]*f[\s\-_·.]*t[\s\-_·.]*i[\s\-_·.]*m[\s\-_·.]*e/gi, "我们的数据系统"],
-  [/Sorftime/gi, "我们的数据系统"],
-  // ═══ Agent 框架 / 运行时 ═══
-  [/F[\s\-_·.]*a[\s\-_·.]*s[\s\-_·.]*t[\s\-_·.]*c[\s\-_·.]*l[\s\-_·.]*a[\s\-_·.]*w/gi, "Agent 平台"],
-  [/FastClaw/gi, "Agent 平台"],
-  // ═══ 模型与模型商 ═══
-  [/MiniMax[\s\-_]*M?2?\.?7?/gi, "模型"],
-  [/MiniMax/gi, "模型"],
-  [/minimax/gi, "模型"],
-  [/M2\.7\s*(HighSpeed)?/gi, "模型"],
-  [/zhipu[\s\-_]*glm/gi, "模型"],
-  [/glm[\s\-_]*[0-9.]+/gi, "模型"],
-  [/\bGLM\b/g, "模型"],
-  [/\bAnthropic\b/gi, "模型厂商"],
-  [/\bClaude\s+(Opus|Sonnet|Haiku)?[\s0-9.]*/gi, "模型"],
-  [/\bOpenAI\b/gi, "模型厂商"],
-  [/\bGPT[\s\-]*[0-9.]*/gi, "模型"],
-  [/\bGemini\b/gi, "模型"],
-  // ═══ 同类电商分析工具 ═══
-  [/Helium\s*10/gi, "其他同类工具"],
-  [/Jungle\s*Scout/gi, "其他同类工具"],
-  [/Sellics/gi, "其他同类工具"],
-  [/Viral\s*Launch/gi, "其他同类工具"],
-  // ═══ 协议 / 架构关键词 ═══
-  [/分析系统_我们的数据系统_\w+/g, "数据查询"],
-  [/mcp_sorftime_\w+/gi, "数据查询"],
-  [/mcp_\w+/gi, "数据查询"],
-  [/\bMCP\s*(Server|Client|工具|工具集|平台|协议|server|client)?/gi, "分析系统"],
-  [/Model\s*Context\s*Protocol/gi, "分析系统"],
-  // ═══ 工具真名（旧）═══
-  [/product_search/gi, "产品搜索"],
-  [/product_detail/gi, "产品详情"],
-  [/product_reviews/gi, "评论采集"],
-  [/product_trend/gi, "产品趋势"],
-  [/product_variations/gi, "变体分析"],
-  [/product_traffic_terms/gi, "流量分析"],
-  [/product_ranking_trend_by_keyword/gi, "排名趋势"],
-  [/product_report/gi, "产品报告"],
-  [/potential_product/gi, "潜力产品"],
-  [/keyword_detail/gi, "关键词详情"],
-  [/keyword_trend/gi, "关键词趋势"],
-  [/keyword_extends/gi, "延伸词"],
-  [/keyword_list/gi, "关键词列表"],
-  [/keyword_search_results/gi, "搜索结果"],
-  [/category_report/gi, "类目报告"],
-  [/category_trend/gi, "类目趋势"],
-  [/category_tree/gi, "类目结构"],
-  [/category_name_search/gi, "类目搜索"],
-  [/category_keywords/gi, "类目关键词"],
-  [/category_search_from_\w+/gi, "类目搜索"],
-  [/search_categories_broadly/gi, "选品搜索"],
-  [/competitor_product_keywords/gi, "竞品关键词"],
-  [/ali1688_similar_product/gi, "货源查询"],
-  [/similar_product_feature/gi, "竞品特征"],
-  [/walmart_\w+/gi, "沃尔玛数据"],
-  [/tiktok_\w+/gi, "TikTok数据"],
-  [/favorite_keyword\w*/gi, "词库管理"],
-  [/get_favorite_keyword\w*/gi, "词库查询"],
-  // ═══ 内部模块名（runtime 路径中也会出现）═══
-  [/market[_-]research/gi, "市场调研"],
-  [/competitor[_-]analysis/gi, "竞品分析"],
-  [/user[_-]model/gi, "用户分析"],
-  [/trade[_-]model/gi, "交易分析"],
-  // ═══ 内部文件 / 配置项名 ═══
-  [/SOUL\.md/gi, "[配置]"],
-  [/SKILL\.md/gi, "[配置]"],
-  [/\bagt_[a-f0-9]+/gi, "[配置]"],
-  [/\.fastclaw/gi, "[配置]"],
-  [/分析系统集/g, "分析系统"],
-];
-
-function sanitize(text: string): string {
-  let result = text;
-  for (const [pattern, replacement] of FILTERED_WORDS) {
-    result = result.replace(pattern, replacement);
-  }
-  // Remove lines that are pure tool lists or expose architecture
-  result = result.replace(/^.*`数据查询`\s*\|.*$/gm, "");
-  result = result.replace(/^.*Skill\s*(名称|脚本|层|技能|文件路径).*/gm, "");
-  result = result.replace(/^.*(Skill|Tool)\s*(名称|脚本|层|技能|函数).*/gim, "");
-  // Remove any remaining code-backtick lines with underscore names
-  result = result.replace(/`\w+_\w+`/g, "`数据查询`");
-  result = result.replace(/\n{3,}/g, "\n\n");
-  return result.trim();
-}
-
-function stripThinkTags(text: string): string {
-  return text.replace(/<think[^>]*>[\s\S]*?<\/think>/g, "").trim();
-}
-
-function MarkdownText({ text, streaming }: { text: string; streaming: boolean }) {
-  if (!text) return null;
-  const blocks = parseMarkdown(text);
-  return (
-    <>
-      {blocks.map((block, i) => {
-        if (block.type === "heading") {
-          const cls = block.level === 2 ? "text-base font-semibold mt-4 mb-2 text-gray-900" : "font-semibold mt-3 mb-1 text-gray-900";
-          if (block.level === 2) return <h2 key={i} className={cls}>{renderInline(block.text)}</h2>;
-          return <h3 key={i} className={cls}>{renderInline(block.text)}</h3>;
-        }
-        if (block.type === "code") {
-          return (
-            <div key={i} className="my-2 rounded-lg bg-gray-900 text-gray-100 p-4 text-xs font-mono overflow-x-auto">
-              <div className="flex justify-between items-center mb-2">
-                <span className="text-gray-500">{block.lang || "code"}</span>
-                <button onClick={() => navigator.clipboard.writeText(block.text)} className="text-gray-500 hover:text-gray-300 text-xs">
-                  复制
-                </button>
-              </div>
-              <pre className="whitespace-pre-wrap">{block.text}</pre>
-            </div>
-          );
-        }
-        if (block.type === "table") {
-          return <MarkdownTable key={i} raw={block.text} />;
-        }
-        if (block.type === "list") {
-          return (
-            <ul key={i} className="space-y-1 my-1">
-              {(block.items || []).map((item, j) => (
-                <li key={j} className="flex gap-2">
-                  <span className="text-gray-400 mt-0.5">•</span>
-                  <span>{renderInline(item)}</span>
-                </li>
-              ))}
-            </ul>
-          );
-        }
-        return <p key={i} className="my-1">{renderInline(block.text)}</p>;
-      })}
-      {streaming && <span className="inline-block w-1.5 h-4 bg-gray-800 align-text-bottom animate-pulse ml-0.5" />}
-    </>
-  );
-}
-
-function MarkdownTable({ raw }: { raw: string }) {
-  const rows = raw.trim().split("\n").filter((l) => l.trim());
-  if (rows.length < 2) return <pre className="text-xs">{raw}</pre>;
-  const parseRow = (row: string) => row.split("|").map((c) => c.trim()).filter(Boolean);
-  const headers = parseRow(rows[0]);
-  const dataRows = rows.slice(2).map(parseRow);
-  return (
-    <div className="my-2 overflow-x-auto">
-      <table className="markdown-table">
-        <thead>
-          <tr>{headers.map((h, i) => <th key={i}>{h}</th>)}</tr>
-        </thead>
-        <tbody>
-          {dataRows.map((row, i) => (
-            <tr key={i}>{row.map((cell, j) => <td key={j}>{renderInline(cell)}</td>)}</tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-/* ─── Parser ─── */
-interface Block {
-  type: "heading" | "code" | "table" | "list" | "paragraph";
-  text: string;
-  level?: number;
-  lang?: string;
-  items?: string[];
-}
-
-function parseMarkdown(text: string): Block[] {
-  const blocks: Block[] = [];
-  const lines = text.split("\n");
-  let i = 0;
-  while (i < lines.length) {
-    const line = lines[i];
-    const hm = line.match(/^(#{1,4})\s+/);
-    if (hm) { blocks.push({ type: "heading", level: hm[1].length, text: line.slice(hm[0].length) }); i++; continue; }
-    if (line.startsWith("```")) {
-      const lang = line.slice(3).trim();
-      const cl: string[] = [];
-      i++;
-      while (i < lines.length && !lines[i].startsWith("```")) { cl.push(lines[i]); i++; }
-      i++;
-      blocks.push({ type: "code", text: cl.join("\n"), lang });
-      continue;
-    }
-    if (line.startsWith("|")) {
-      const tl: string[] = [];
-      while (i < lines.length && lines[i].startsWith("|")) { tl.push(lines[i]); i++; }
-      blocks.push({ type: "table", text: tl.join("\n") });
-      continue;
-    }
-    if (line.match(/^[-*]\s/)) {
-      const items: string[] = [];
-      while (i < lines.length && lines[i].match(/^[-*]\s/)) { items.push(lines[i].replace(/^[-*]\s/, "")); i++; }
-      blocks.push({ type: "list", text: "", items });
-      continue;
-    }
-    if (!line.trim()) { i++; continue; }
-    const pl: string[] = [];
-    while (i < lines.length && lines[i].trim() && !lines[i].startsWith("#") && !lines[i].startsWith("```") && !lines[i].startsWith("|") && !lines[i].match(/^[-*]\s/)) {
-      pl.push(lines[i]); i++;
-    }
-    blocks.push({ type: "paragraph", text: pl.join("\n") });
-  }
-  return blocks;
-}
-
-function renderInline(text: string) {
-  const parts = text.split(/(\*\*[^*]+\*\*)/g);
-  return parts.map((part, i) => {
-    if (part.startsWith("**") && part.endsWith("**")) return <strong key={i}>{part.slice(2, -2)}</strong>;
-    const cp = part.split(/(`[^`]+`)/g);
-    return cp.map((c, j) => {
-      if (c.startsWith("`") && c.endsWith("`")) return <code key={`${i}-${j}`} className="bg-gray-100 text-red-600 px-1 py-0.5 rounded text-xs">{c.slice(1, -1)}</code>;
-      return <span key={`${i}-${j}`}>{c}</span>;
-    });
-  });
 }
