@@ -32,52 +32,52 @@ const SKILL_COMMANDS: { skill: string; commands: string[] }[] = [
   {
     skill: "市场调研",
     commands: [
-      "分析「[关键词]」市场：搜索量、价格带、品牌格局",
-      "「[关键词]」搜索趋势怎么样",
-      "「[关键词]」头部产品价格带分布",
-      "「[关键词]」拓展词和细分方向",
-      "「[关键词]」品类整体报告",
+      "分析 [输入关键词] 市场：搜索量、价格带、品牌格局",
+      "[输入关键词] 搜索趋势怎么样",
+      "[输入关键词] 头部产品价格带分布",
+      "[输入关键词] 拓展词和细分方向",
+      "[输入关键词] 品类整体报告",
     ],
   },
   {
     skill: "竞品分析",
     commands: [
-      "对比分析竞品「[ASIN], [ASIN]」",
-      "「[ASIN]」的差评痛点",
-      "「[ASIN]」流量来源关键词",
-      "「[ASIN]」变体策略分析",
-      "「[ASIN]」销量趋势",
+      "对比分析竞品 [输入ASIN], [输入ASIN]",
+      "[输入ASIN] 的差评痛点",
+      "[输入ASIN] 流量来源关键词",
+      "[输入ASIN] 变体策略分析",
+      "[输入ASIN] 销量趋势",
     ],
   },
   {
     skill: "用户需求",
     commands: [
-      "分析「[关键词]」用户需求：场景、痛点、效用层级",
-      "「[关键词]」用户最常抱怨什么",
-      "「[关键词]」买家使用场景和购买动机",
-      "「[关键词]」用户核心需求和价值演算",
+      "分析 [输入关键词] 用户需求：场景、痛点、效用层级",
+      "[输入关键词] 用户最常抱怨什么",
+      "[输入关键词] 买家使用场景和购买动机",
+      "[输入关键词] 用户核心需求和价值演算",
     ],
   },
   {
     skill: "选品评估",
     commands: [
-      "评估「[关键词]」值不值得做",
-      "「[ASIN]」这个产品的市场还有机会吗",
-      "「[关键词]」进入难度",
-      "「[关键词]」竞争壁垒和差异化机会",
+      "评估 [输入关键词] 值不值得做",
+      "[输入ASIN] 这个产品的市场还有机会吗",
+      "[输入关键词] 进入难度",
+      "[输入关键词] 竞争壁垒和差异化机会",
     ],
   },
 ];
 
 const QUICK_EXAMPLES = [
-  "「[关键词]」搜索量多少",
-  "「[ASIN]」产品详情",
-  "「[关键词]」价格带分布",
-  "「[关键词]」差评痛点",
-  "「[关键词]」CPC 多少",
-  "「[关键词]」搜索趋势",
-  "「[关键词]」拓展词",
-  "「[ASIN]」BSR 排名",
+  "[输入关键词] 搜索量多少",
+  "[输入ASIN] 产品详情",
+  "[输入关键词] 价格带分布",
+  "[输入关键词] 差评痛点",
+  "[输入关键词] CPC 多少",
+  "[输入关键词] 搜索趋势",
+  "[输入关键词] 拓展词",
+  "[输入ASIN] BSR 排名",
 ];
 
 function CollapsibleSection({ title, items, defaultOpen, onItemClick }: { title: string; items: string[]; defaultOpen?: boolean; onItemClick?: (item: string) => void }) {
@@ -155,7 +155,7 @@ export function DataReferencePanel({ visible, onSelectCommand }: DataReferencePa
           可查询数据
         </div>
         {DATA_SECTIONS.map((sec) => (
-          <CollapsibleSection key={sec.title} title={sec.title} items={sec.items} />
+          <CollapsibleSection key={sec.title} title={sec.title} items={sec.items} onItemClick={onSelectCommand} />
         ))}
 
         <div style={{ borderTop: "1px solid var(--color-border)", marginTop: 8, paddingTop: 10 }}>

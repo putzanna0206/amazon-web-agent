@@ -182,13 +182,13 @@ export default function ChatPage() {
                     fontSize: 13,
                     fontWeight: 600,
                     cursor: "pointer",
-                    background: i === 0 ? "var(--color-sidebar-hover)" : "transparent",
-                    color: "var(--color-text)",
-                    border: "1px solid var(--color-border)",
-                    transition: "background 0.15s",
+                    background: "var(--brand-primary)",
+                    color: "white",
+                    border: "none",
+                    transition: "opacity 0.15s",
                   }}
-                  onMouseEnter={(e) => { e.currentTarget.style.background = "var(--color-sidebar-hover)"; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.background = i === 0 ? "var(--color-sidebar-hover)" : "transparent"; }}
+                  onMouseEnter={(e) => { e.currentTarget.style.opacity = "0.85"; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.opacity = "1"; }}
                 >
                   {s.label}
                 </div>
