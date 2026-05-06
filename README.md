@@ -57,13 +57,8 @@ amazon-web-agent/
 ~/.local/bin/fastclaw daemon status
 
 # 重新编译 Fork（修改 fastclaw/ 源码后）
-cd fastclaw
-cd web && pnpm install && pnpm build && cd ..
-cp -r web/out internal/setup/web
-go build -o fastclaw-test ./cmd/fastclaw
-~/.local/bin/fastclaw daemon stop
-cp fastclaw-test ~/.local/bin/fastclaw
-~/.local/bin/fastclaw daemon start
+./setup.sh   # 仓库根脚本：构建 fastclaw web → embed → go build → 安装到 ~/.local/bin/
+             # 不会自动启停 daemon、不会动 agent 数据，需要手动操作
 
 # Web UI
 cd web && pnpm dev     # 开发
@@ -79,5 +74,6 @@ tail -f ~/.fastclaw/logs/gateway.log
 |------|------|
 | FastClaw MCP 客户端缺 Accept header | ✅ 已在 Fork 中修复 |
 | FastClaw 不支持 SSE 响应解析 | ✅ 已在 Fork 中修复 |
-| 三层防御未同步到运行时 | ⚠️ 待 sync |
-| MCP 工具真名在 tool schema 暴露 | ⚠️ 待验证 |
+| 4 SKILL.md + TOOLS.md → 运行时文件系统 | ✅ 已同步（`sync-to-runtime.sh`） |
+| SOUL.md → 数据库 | ⚠️ 未同步（数据库 3570B 旧版，仓库 8604B 新版，需 admin UI 或 API 手动写入） |
+| MCP 工具真名在 tool schema 暴露 | ✅ 仅出现在 `<think/>`，前端 `stripThinkTags` 后不可见 |

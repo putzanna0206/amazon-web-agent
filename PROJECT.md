@@ -339,7 +339,8 @@ SOUL.md 和客服手册.md 定义"敏感问题应对"话术，教 LLM 听到敏�
 
 #### Phase 3：验证 ⏳
 
-- [x] 同步 agents/ 到运行时（SOUL.md → 数据库，4 SKILL.md + TOOLS.md → 文件系统）
+- [x] 同步 4 SKILL.md + TOOLS.md → 运行时文件系统（`sync-to-runtime.sh` 已跑）
+- [ ] SOUL.md → 数据库未同步（数据库当前 3570B 旧版，仓库 8604B 新版；需 admin UI 或 API 手动写入；脚本最后一步未执行）
 - [x] 压力测试 5 轮（一般好奇 / 品牌试探 / 越狱 / 反复纠缠 / 工具真名试探）— 全部通过
 - [x] 功能验证（foldable keyboard 分析）— 正常
 - [x] MCP schema 泄漏验证 — 工具真名仅在 `<think/>` 块出现，前端 strip 后不可见，🟡 中等风险，V1 可接受
