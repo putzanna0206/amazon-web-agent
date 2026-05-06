@@ -21,7 +21,7 @@ const QUICK_CARDS = [
   { label: "市场调研", desc: "关键词/品类 → 搜索量、趋势、价格带、品牌格局", text: "帮我分析 bluetooth speaker 这个品类的市场概况" },
   { label: "竞品分析", desc: "ASIN/链接 → 产品对比、评论、痛点", text: "对比分析这几款产品: B0D1QFXM7K, B0BZJTGRZG, B0CKQLY8LS" },
   { label: "用户需求", desc: "用户行为/评价 → 使用场景、效用层级、价值演算", text: "分析 electric toothbrush 品类用户的差评痛点" },
-  { label: "交易优化", desc: "定价/转化/成本 → 交易成本诊断、定价策略", text: "查一下 portable power station 的搜索量和趋势" },
+  { label: "选品评估", desc: "关键词/ASIN → 市场规模、竞争、利润空间、风险判断", text: "bluetooth speaker 这个品类值得做吗" },
 ];
 
 const SKILL_PROMPTS = [
@@ -34,8 +34,8 @@ const SKILL_PROMPTS = [
   { key: "user", label: "用户需求",
     template: `帮我从用户角度解构「」的需求：使用场景、痛点、效用层级`,
     cursorOffset: 9 },
-  { key: "trade", label: "交易优化",
-    template: `帮我诊断「」的转化与定价问题：交易成本、定价策略`,
+  { key: "evaluate", label: "选品评估",
+    template: `帮我评估「」值不值得做：市场规模、竞争、利润空间、风险`,
     cursorOffset: 7 },
 ];
 
