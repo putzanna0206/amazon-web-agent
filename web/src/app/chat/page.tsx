@@ -9,6 +9,7 @@ import { apply as applyBrandGuard } from "@/lib/brand-guard";
 import { useSessions } from "@/lib/session-store";
 import { runChatTurn, type StreamPhase } from "@/lib/run-chat-turn";
 import { MarkdownText, stripThinkTags } from "@/lib/markdown";
+import { DataReferencePanel } from "@/components/data-reference-panel";
 
 const PHASE_LABEL: Record<StreamPhase, string> = {
   thinking: "思考中...",
@@ -48,6 +49,7 @@ export default function ChatPage() {
   const [streamingIds, setStreamingIds] = useState<Set<string>>(new Set());
   const [phaseMap, setPhaseMap] = useState<Map<string, StreamPhase>>(new Map());
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [refPanelOpen, setRefPanelOpen] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -231,6 +233,15 @@ export default function ChatPage() {
             <span style={{ width: 24, height: 24, display: "grid", placeItems: "center", borderRadius: 6, background: "var(--brand-primary)", color: "white", fontSize: 11, fontWeight: 700, fontFamily: "ui-monospace, monospace" }}>AW</span>
             <span style={{ fontSize: 13, fontWeight: 600 }}>AmaWebAgent</span>
           </div>
+          <button
+            onClick={() => setRefPanelOpen(!refPanelOpen)}
+            title={refPanelOpen ? "隐藏数据参考" : "显示数据参考"}
+            style={{ marginLeft: "auto", padding: 6, borderRadius: 8, border: "none", background: refPanelOpen ? "var(--color-sidebar-hover)" : "none", cursor: "pointer", color: "var(--color-text)", fontSize: 12 }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = "var(--color-sidebar-hover)"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = refPanelOpen ? "var(--color-sidebar-hover)" : "none"; }}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2" /><path d="M3 9h18" /><path d="M9 21V9" /></svg>
+          </button>
         </div>
 
         {messages.length === 0 ? (
@@ -312,6 +323,7 @@ export default function ChatPage() {
           </>
         )}
       </div>
+      <DataReferencePanel visible={refPanelOpen} />
     </div>
   );
 }
