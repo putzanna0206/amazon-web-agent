@@ -106,7 +106,7 @@ function CollapsibleSection({ title, items, defaultOpen, onItemClick }: { title:
         style={{
           display: "flex", alignItems: "center", gap: 6, width: "100%",
           background: "none", border: "none", cursor: "pointer", padding: "4px 0",
-          fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)",
+          fontSize: 13, fontWeight: 700, color: "var(--color-text)",
           textAlign: "left" as const,
         }}
       >
@@ -159,7 +159,7 @@ export function DataReferencePanel({ visible, onSelectCommand }: DataReferencePa
       }}
     >
       <div style={{ padding: "14px 14px 8px", flexShrink: 0 }}>
-        <div style={{ fontSize: 12, fontWeight: 700, color: "var(--color-text)" }}>
+        <div style={{ fontSize: 15, fontWeight: 700, color: "var(--color-text)" }}>
           选择指令开始搜索
         </div>
         <div style={{ fontSize: 10, color: "var(--color-text-muted)", marginTop: 2 }}>
