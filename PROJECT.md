@@ -124,7 +124,9 @@ Mac Mini (16G) ─── Cloudflare Tunnel ─── 自定义域名
 |------|------|------|
 | Agent 知识源文件 | `agents/竞品与需求分析/` | SOUL.md + 4 skill + tools + 客服手册 |
 | Chat UI | `web/` | login + chat 两页，Tailwind v4 |
-| sanitize 兜底 | `web/src/app/page.tsx` ~460 行处 | 30+ 正则替换，含拆字/大小写变体 |
+| brand-guard 兜底 | `web/src/lib/brand-guard/` | 第三层防御 Module。规则按 8 类分组、`SanitizedText` branded type 在 TS 层强制 Seam |
+| sessionStore | `web/src/lib/session-store.ts` | 本地会话 Module（`useSessions` hook）。收齐 localStorage 同步、首条消息 → title、空列表自动建一条三条 invariant |
+| runChatTurn | `web/src/lib/run-chat-turn.ts` | 一轮对话副作用管线。把 SSE 事件流翻译成 `TurnEvent`，phase 状态机内化。streamFn 可注入用于测试 |
 | 真名代号映射 | `docs/真名代号映射.md` | 机密，不进 agent context |
 
 ### 目录结构
@@ -276,24 +278,30 @@ SOUL.md 和客服手册.md 定义"敏感问题应对"话术，教 LLM 听到敏�
 
 #### 第三层：兜底层
 
-前端 `web/src/app/page.tsx` 的 `sanitize()` 函数，处理 LLM 漏嘴的情况。
+`web/src/lib/brand-guard/` Module，处理 LLM 漏嘴的情况。
 
-**覆盖范围**：
-- 数据源品牌名（含拆字 `S[\s]*o[\s]*r[\s]*f...`、大小写变体）
-- Agent 框架名
-- 模型名/厂商名（MiniMax、Claude、GPT、Gemini、GLM 等）
-- 同类工具名（Helium 10、Jungle Scout 等）
-- MCP 工具真名（30+ 个）
-- 内部模块名（market-research 等 runtime 路径）
-- 内部文件名（SOUL.md、SKILL.md、.fastclaw 等）
-- 下划线代码名（`\w+_\w+` 兜底替换为"数据查询"）
+**覆盖范围**（按语义类别分 8 组，详见 `rules.ts`）：
+- `dataSourceBrand` — 数据源品牌名（含拆字 `S[\s]*o[\s]*r[\s]*f...`、大小写变体）
+- `agentRuntimeBrand` — Agent 框架/运行时名
+- `modelNames` — 模型名/厂商名（MiniMax、Claude、GPT、Gemini、GLM 等）
+- `competitorTools` — 同类工具名（Helium 10、Jungle Scout 等）
+- `protocolKeywords` — MCP 等协议关键词
+- `toolRealNames` — MCP 工具真名（30+ 个）
+- `internalModuleNames` — 内部模块名（market-research 等 runtime 路径）
+- `internalFileNames` — bootstrap 文件名、agent_id、绝对路径
+- `LINE_RULES` — 行级后处理（删工具列表行、`\w+_\w+` 兜底替换）
+
+**Seam 由 TypeScript 强制**：`brand-guard` 导出 `SanitizedText` branded type。`MarkdownText` 等渲染入口的 `text` 参数必须是 `SanitizedText`，未经 `apply()` 的 raw `string` 在编译期就被拦下。绕过的唯一路径是显式调 `trustAsSanitized()`——名字故意刺眼便于 review 抓住。
+
+**测试**：`brand-guard.test.ts`（vitest）覆盖每个分组 + 综合用例，跑 `pnpm test`。新增/修改规则时同步加用例。
 
 ### 铁律
 
 1. **禁令清单不列具体名词** — 任何涉及禁令的改动，只在源文件用语义类别描述
-2. **三层同步改** — 改了源文件代号 → 检查教育层话术 → 检查 sanitize 正则
+2. **三层同步改** — 改了源文件代号 → 检查教育层话术 → 改 brand-guard 规则 + 加测试用例
 3. **真名映射文件不进 agent context** — 永远不部署到运行时
 4. **SKILL.md 里不出现真名** — 新增工具时先加映射再写代号
+5. **brand-guard 不绕** — 任何渲染给用户的 LLM 文本必须经 `apply()`；只在审过的写入路径用 `trustAsSanitized()`
 
 ### 已知待解决项
 
@@ -302,6 +310,8 @@ SOUL.md 和客服手册.md 定义"敏感问题应对"话术，教 LLM 听到敏�
 | MCP 工具真名在 tool schema 里暴露给 LLM | 🔴 | 需 Fork 加 alias 层 或 MCP proxy 改名 |
 | 运行时 skill 目录名为英文（`market-research`）在 system prompt 可见 | 🟡 | 改目录名或 Fork 改 name 属性注入 |
 | system prompt 硬编码 "FastClaw runtime" | 🟡 | 需改 Fork 源码 `context.go` |
+| brand-guard 内规则顺序敏感性 | 🟡 | split pattern 抢先吞掉变体 → `dataSourceBrand.exact` / `agentRuntimeBrand.exact` / `internalFileNames.fastclawDir` 实为死规则 |
+| brand-guard 规则互吞 | 🟡 | `walmart_keyword_detail` 被 `keyword_detail` 先吃 → `walmart_关键词详情`，`walmart_` 前缀残留。需要把 `walmart_*` / `tiktok_*` 规则提前到 toolRealNames 之前 |
 
 ---
 

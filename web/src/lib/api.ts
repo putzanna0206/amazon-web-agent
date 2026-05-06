@@ -51,10 +51,11 @@ export async function renameSession(
 export interface ChatMessage {
   role: "user" | "assistant";
   content: string;
+  files?: { path: string; name: string }[];
 }
 
 export interface ChatEvent {
-  type: "content" | "tool_call" | "tool_result" | "done";
+  type: "content" | "tool_call" | "tool_result" | "done" | "file";
   data?: Record<string, string>;
 }
 

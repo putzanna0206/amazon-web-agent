@@ -42,16 +42,24 @@
 
 ## 报告生成规范
 
-### HTML 模板样式
+### PDF 生成（只允许 fpdf2，禁止 playwright/weasyprint）
 
-报告生成 HTML 时使用以下样式：
-- 页面：A4 尺寸，margin: 20mm
-- 字体：PingFang SC, Hiragino Sans GB, STHeiti, sans-serif
-- 标题：H1 24px #1a1a1a，H2 18px #2563eb，H3 15px #374151
-- 表格：全边框 + 斑马纹（偶数行 #f9fafb），表头 #f3f4f6
-- 结论/启示：浅蓝背景色块（#eff6ff + 左边框 #3b82f6）
-- 机会点标记：绿色标签
-- 风险点标记：红色标签
+使用 exec 工具运行 Python 脚本，通过 fpdf2 生成 PDF：
+
+```
+from fpdf import FPDF
+pdf = FPDF()
+pdf.add_page()
+pdf.add_font('STHeiti', '', '/System/Library/Fonts/STHeiti Medium.ttc')
+pdf.set_font('STHeiti', '', 字号)
+pdf.cell(0, 行高, '内容', new_x='LMARGIN', new_y='NEXT')
+pdf.output('workspace路径/文件名.pdf')
+print('PDF_GENERATED:文件名.pdf')
+```
+
+- 字体：必须用 STHeiti（系统已有），不能使用 Helvetica（不支持中文）
+- 输出路径：`/Users/darrending/.fastclaw/workspaces/agt_641dd151f236281066ee/文件名.pdf`
+- 最后一行必须输出 `PDF_GENERATED:文件名.pdf`（系统通过这个标记投递文件给用户）
 
 ### 报告整体结构
 1. 封面（报告标题 + 日期 + 分析类型）
