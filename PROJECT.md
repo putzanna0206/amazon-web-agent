@@ -116,7 +116,7 @@ Mac Mini (16G) ─── Cloudflare Tunnel ─── 自定义域名
 
 ### FastClaw Fork 改动
 
-原版 FastClaw 的 MCP HTTP 客户端缺 `Accept` header 且不解析 SSE 响应。Fork 修复在 `internal/mcp/http.go`。Fork 源码在 `~/fastclaw/`（不在本仓库）。
+原版 FastClaw 的 MCP HTTP 客户端缺 `Accept` header 且不解析 SSE 响应。Fork 修复在 `internal/mcp/http.go`。Fork 源码 vendored 在 `fastclaw/`（本仓库内，已去 `.git/`）。独立 fork 仓库 `Darren77ding/amazon-fastclaw` 仍维护，用于追上游更新；本仓库 `fastclaw/` 是 fork HEAD 的快照，需 sync 时手动 cp 过来。
 
 ### 关键组件
 
@@ -172,7 +172,7 @@ amazon-web-agent/
 | Skill 文件 | `agents/竞品与需求分析/skills/*.md` | `~/.fastclaw/agents/agt_641dd151f236281066ee/agent/skills/<英文目录名>/SKILL.md` |
 | 客服手册 / tools / examples | `agents/竞品与需求分析/` 下 | **未部署**（FastClaw 只加载固定 bootstrap 文件） |
 | FastClaw 二进制 | 不在仓库 | `~/.local/bin/fastclaw` |
-| Fork 源码 | 不在仓库 | `~/fastclaw/` |
+| Fork 源码 | `fastclaw/`（vendored） | 编译输出到 `~/.local/bin/fastclaw` |
 | 数据库 | 不在仓库 | `~/.fastclaw/fastclaw.db` |
 | 日志 | 不在仓库 | `~/.fastclaw/logs/gateway.log` |
 
@@ -219,7 +219,7 @@ amazon-web-agent/
 ~/.local/bin/fastclaw daemon status   # 状态
 
 # 重新编译 Fork
-cd ~/fastclaw
+cd fastclaw
 cd web && pnpm install && pnpm build && cd ..
 cp -r web/out internal/setup/web
 go build -o fastclaw-test ./cmd/fastclaw

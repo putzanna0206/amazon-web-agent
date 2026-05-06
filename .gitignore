@@ -19,3 +19,8 @@ web/node_modules/
 # Deprecated - kept for reference only
 backend/
 frontend/
+
+# FastClaw 本地构建产物 / 运行时数据
+# （fastclaw/.gitignore 已覆盖主二进制、web 构建产物、node_modules、vendor 等；这里补它没覆盖的）
+fastclaw/fastclaw-test
+fastclaw/fastclaw.db

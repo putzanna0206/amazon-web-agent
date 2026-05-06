@@ -10,7 +10,7 @@
 
 - 删除/重命名 `agents/` 下任何文件
 - 修改品牌保护相关内容（SOUL 敏感问题应对、禁令清单、sanitize）
-- 改 FastClaw Fork 源码（`~/fastclaw/`）
+- 改 FastClaw Fork 源码（`fastclaw/`，vendored）
 - 删除 `backend/`（废弃但未清理）
 - 重启 FastClaw daemon（会断朋友会话）
 

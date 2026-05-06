@@ -44,6 +44,7 @@ amazon-web-agent/
 ├── docs/
 │   ├── 真名代号映射.md          # 机密映射表
 │   └── archive/               # 归档的旧文档
+├── fastclaw/                  # FastClaw Fork 源码（vendored，去 .git）
 └── backend/                    # ⚠️ 废弃（104MB），待清理
 ```
 
@@ -55,8 +56,8 @@ amazon-web-agent/
 ~/.local/bin/fastclaw daemon restart  # 会断朋友会话
 ~/.local/bin/fastclaw daemon status
 
-# 重新编译 Fork（修改 ~/fastclaw/ 源码后）
-cd ~/fastclaw
+# 重新编译 Fork（修改 fastclaw/ 源码后）
+cd fastclaw
 cd web && pnpm install && pnpm build && cd ..
 cp -r web/out internal/setup/web
 go build -o fastclaw-test ./cmd/fastclaw
