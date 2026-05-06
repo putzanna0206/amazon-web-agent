@@ -19,25 +19,25 @@ const PHASE_LABEL: Record<StreamPhase, string> = {
 };
 
 const QUICK_CARDS = [
-  { label: "市场调研", desc: "关键词/品类 → 搜索量、趋势、价格带、品牌格局", text: "帮我分析 bluetooth speaker 这个品类的市场概况" },
-  { label: "竞品分析", desc: "ASIN/链接 → 产品对比、评论、痛点", text: "对比分析这几款产品: B0D1QFXM7K, B0BZJTGRZG, B0CKQLY8LS" },
-  { label: "用户需求", desc: "用户行为/评价 → 使用场景、效用层级、价值演算", text: "分析 electric toothbrush 品类用户的差评痛点" },
-  { label: "选品评估", desc: "关键词/ASIN → 市场规模、竞争、利润空间、风险判断", text: "bluetooth speaker 这个品类值得做吗" },
+  { label: "市场调研", desc: "选择调研模版，输出详细报告", text: "帮我分析「bluetooth speaker」这个市场：搜索量、价格带、头部品牌、机会点" },
+  { label: "竞品分析", desc: "选择调研模版，输出详细报告", text: "帮我对比分析这些竞品：「B0D1QFXM7K, B0BZJTGRZG」" },
+  { label: "用户需求", desc: "选择调研模版，输出详细报告", text: "帮我从用户角度分析「electric toothbrush」的需求：使用场景、痛点、效用层级" },
+  { label: "选品评估", desc: "选择调研模版，输出详细报告", text: "帮我评估「bluetooth speaker」值不值得做：市场规模、竞争、利润空间、风险" },
 ];
 
 const SKILL_PROMPTS = [
   { key: "market", label: "市场调研",
-    template: `帮我分析「」这个市场：搜索量、价格带、头部品牌、机会点`,
-    cursorOffset: 7 },
+    template: `帮我分析「输入关键词」这个市场：搜索量、价格带、头部品牌、机会点`,
+    placeholder: "输入关键词，如 bluetooth speaker" },
   { key: "comp", label: "竞品分析",
-    template: "帮我拆解这个竞品：",
-    cursorOffset: 10 },
+    template: `帮我对比分析这些竞品：「输入ASIN」`,
+    placeholder: "输入ASIN，如 B0D1QFXM7K" },
   { key: "user", label: "用户需求",
-    template: `帮我从用户角度解构「」的需求：使用场景、痛点、效用层级`,
-    cursorOffset: 9 },
+    template: `帮我从用户角度分析「输入关键词」的需求：使用场景、痛点、效用层级`,
+    placeholder: "输入关键词，如 electric toothbrush" },
   { key: "evaluate", label: "选品评估",
-    template: `帮我评估「」值不值得做：市场规模、竞争、利润空间、风险`,
-    cursorOffset: 7 },
+    template: `帮我评估「输入关键词或ASIN」值不值得做：市场规模、竞争、利润空间、风险`,
+    placeholder: "输入关键词或ASIN" },
 ];
 
 export default function ChatPage() {
@@ -170,11 +170,11 @@ export default function ChatPage() {
                 key={s.key}
                 className={`side-link${i === 0 ? " active" : ""}`}
                 onClick={() => {
-                  setInput(s.template);
-                  requestAnimationFrame(() => {
-                    textareaRef.current?.focus();
-                    textareaRef.current?.setSelectionRange(s.cursorOffset, s.cursorOffset);
-                  });
+                  const keyword = prompt(s.placeholder ?? "请输入关键词或ASIN");
+                  if (!keyword?.trim()) return;
+                  const filled = s.template.replace(/输入关键词或ASIN|输入关键词|输入ASIN/g, keyword.trim());
+                  setInput(filled);
+                  requestAnimationFrame(() => textareaRef.current?.focus());
                 }}
               >
                 <span className="mini-dot"></span>{s.label}
