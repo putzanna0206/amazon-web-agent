@@ -16,22 +16,26 @@ export interface LocalSession {
   createdAt: number;
 }
 
-const STORAGE_KEY = "fc_sessions";
+const STORAGE_KEY_PREFIX = "fc_sessions_";
 const DEFAULT_TITLE = "新对话";
 const TITLE_MAX = 30;
 
-function loadFromStorage(): LocalSession[] {
+function storageKey(userId: string) {
+  return STORAGE_KEY_PREFIX + userId;
+}
+
+function loadFromStorage(userId: string): LocalSession[] {
   if (typeof window === "undefined") return [];
   try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+    return JSON.parse(localStorage.getItem(storageKey(userId)) || "[]");
   } catch {
     return [];
   }
 }
 
-function saveToStorage(sessions: LocalSession[]) {
+function saveToStorage(userId: string, sessions: LocalSession[]) {
   if (typeof window === "undefined") return;
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions));
+  localStorage.setItem(storageKey(userId), JSON.stringify(sessions));
 }
 
 function genId() {
@@ -54,7 +58,7 @@ export interface UseSessionsResult {
   rename: (id: string, title: string) => void;
 }
 
-export function useSessions(): UseSessionsResult {
+export function useSessions(userId: string): UseSessionsResult {
   const [sessions, setSessions] = useState<LocalSession[]>([]);
   const [activeId, setActiveId] = useState("");
   const [hydrated, setHydrated] = useState(false);
@@ -62,19 +66,20 @@ export function useSessions(): UseSessionsResult {
   // Hydrate from localStorage on mount. Mount-only — localStorage 仅 client 可访问，
   // 必须 effect 阶段才能读。这是 set-state-in-effect 规则的合理用例。
   useEffect(() => {
-    const stored = loadFromStorage();
+    if (!userId) return;
+    const stored = loadFromStorage(userId);
     const list = stored.length > 0 ? stored : [newSession()];
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setSessions(list);
     setActiveId(list[0].id);
     setHydrated(true);
-  }, []);
+  }, [userId]);
 
   // Persist on every change. Skip until hydrated to avoid wiping storage with the initial [].
   useEffect(() => {
     if (!hydrated) return;
-    saveToStorage(sessions);
-  }, [sessions, hydrated]);
+    saveToStorage(userId, sessions);
+  }, [sessions, hydrated, userId]);
 
   const create = useCallback(() => {
     const fresh = newSession();

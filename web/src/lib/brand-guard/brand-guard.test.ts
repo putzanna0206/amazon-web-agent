@@ -13,6 +13,13 @@ describe("brand-guard / dataSourceBrand", () => {
     expect(apply("S-o-r-f-t-i-m-e")).toBe("我们的数据系统");
     expect(apply("S.o.r.f.t.i.m.e")).toBe("我们的数据系统");
   });
+
+  it("exact 规则在 split 之前能命中", () => {
+    const { hits } = applyVerbose("使用 Sorftime 数据");
+    const ids = hits.map((h) => h.id);
+    expect(ids).toContain("dataSourceBrand.exact");
+    expect(ids).not.toContain("dataSourceBrand.split");
+  });
 });
 
 describe("brand-guard / agentRuntimeBrand", () => {
@@ -23,6 +30,12 @@ describe("brand-guard / agentRuntimeBrand", () => {
 
   it("拦截 FastClaw 拆字", () => {
     expect(apply("F a s t c l a w")).toBe("Agent 平台");
+  });
+
+  it("FastClaw exact 规则能命中", () => {
+    const { hits } = applyVerbose("运行在 FastClaw 上");
+    const ids = hits.map((h) => h.id);
+    expect(ids).toContain("agentRuntimeBrand.exact");
   });
 });
 
@@ -77,10 +90,9 @@ describe("brand-guard / toolRealNames", () => {
   });
 
   it("替换 walmart_* / tiktok_* 通配", () => {
-    // 注意：walmart_keyword_detail 会先被 keyword_detail 规则吞掉 → walmart_关键词详情，walmart_ 漏掉
-    // 这是规则顺序产物。测纯 walmart_xxx 形式
     expect(apply("walmart_search")).toContain("沃尔玛数据");
     expect(apply("tiktok_author")).toContain("TikTok数据");
+    expect(apply("walmart_keyword_detail")).toContain("沃尔玛数据");
   });
 });
 
@@ -98,8 +110,7 @@ describe("brand-guard / internalFileNames", () => {
     expect(apply("写入 SOUL.md")).toContain("[配置]");
     expect(apply("加载 SKILL.md")).toContain("[配置]");
     expect(apply("agt_641dd151f236281066ee")).toContain("[配置]");
-    // 注意：.fastclaw 这条规则实际被 agentRuntimeBrand.split 抢先吞掉，
-    // 是事实上的死规则。本次 deepening 不修复，仅记录。
+    expect(apply("路径 ~/.fastclaw/agents/")).toContain("[配置]");
   });
 
   it("替换文件操作工具名", () => {
@@ -141,15 +152,13 @@ describe("brand-guard / 综合", () => {
 
 describe("brand-guard / applyVerbose", () => {
   it("返回命中规则的清单和次数", () => {
-    // 注意：split pattern 因 [...]* 允许 0+ 连接符，连续大小写变体也匹配，
-    // 所以 .exact 规则在 .split 之后实际是死规则（永远不命中）。
     const { output, hits } = applyVerbose("使用 Sorftime 和 FastClaw");
     expect(output).toContain("我们的数据系统");
     expect(output).toContain("Agent 平台");
 
     const ids = hits.map((h) => h.id);
-    expect(ids).toContain("dataSourceBrand.split");
-    expect(ids).toContain("agentRuntimeBrand.split");
+    expect(ids).toContain("dataSourceBrand.exact");
+    expect(ids).toContain("agentRuntimeBrand.exact");
   });
 
   it("无命中时 hits 为空数组", () => {

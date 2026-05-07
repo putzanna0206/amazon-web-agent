@@ -34,13 +34,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     // Check if already logged in
     getAgents()
-      .then(async () => {
-        // Session is valid, get user info from storage
+      .then(async (res) => {
+        // Session is valid — prefer fresh agent data from API
+        const agents = res.agents || [];
         const stored = localStorage.getItem("fc_user");
         if (stored) {
           const { user: u, agent: a } = JSON.parse(stored);
           setUser(u);
-          setAgent(a);
+          setAgent(agents[0] || a);
         }
       })
       .catch(() => {

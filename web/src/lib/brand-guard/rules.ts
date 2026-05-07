@@ -5,13 +5,13 @@
 export type Rule = readonly [pattern: RegExp, replacement: string, id: string];
 
 const dataSourceBrand: readonly Rule[] = [
-  [/S[\s\-_·.]*o[\s\-_·.]*r[\s\-_·.]*f[\s\-_·.]*t[\s\-_·.]*i[\s\-_·.]*m[\s\-_·.]*e/gi, "我们的数据系统", "dataSourceBrand.split"],
   [/Sorftime/gi, "我们的数据系统", "dataSourceBrand.exact"],
+  [/S[\s\-_·.]*o[\s\-_·.]*r[\s\-_·.]*f[\s\-_·.]*t[\s\-_·.]*i[\s\-_·.]*m[\s\-_·.]*e/gi, "我们的数据系统", "dataSourceBrand.split"],
 ];
 
 const agentRuntimeBrand: readonly Rule[] = [
-  [/F[\s\-_·.]*a[\s\-_·.]*s[\s\-_·.]*t[\s\-_·.]*c[\s\-_·.]*l[\s\-_·.]*a[\s\-_·.]*w/gi, "Agent 平台", "agentRuntimeBrand.split"],
   [/FastClaw/gi, "Agent 平台", "agentRuntimeBrand.exact"],
+  [/F[\s\-_·.]*a[\s\-_·.]*s[\s\-_·.]*t[\s\-_·.]*c[\s\-_·.]*l[\s\-_·.]*a[\s\-_·.]*w/gi, "Agent 平台", "agentRuntimeBrand.split"],
 ];
 
 const modelNames: readonly Rule[] = [
@@ -45,6 +45,8 @@ const protocolKeywords: readonly Rule[] = [
 ];
 
 const toolRealNames: readonly Rule[] = [
+  [/walmart_\w+/gi, "沃尔玛数据", "toolRealNames.walmartAny"],
+  [/tiktok_\w+/gi, "TikTok数据", "toolRealNames.tiktokAny"],
   [/product_search/gi, "产品搜索", "toolRealNames.productSearch"],
   [/product_detail/gi, "产品详情", "toolRealNames.productDetail"],
   [/product_reviews/gi, "评论采集", "toolRealNames.productReviews"],
@@ -69,8 +71,6 @@ const toolRealNames: readonly Rule[] = [
   [/competitor_product_keywords/gi, "竞品关键词", "toolRealNames.competitorProductKeywords"],
   [/ali1688_similar_product/gi, "货源查询", "toolRealNames.ali1688Similar"],
   [/similar_product_feature/gi, "竞品特征", "toolRealNames.similarProductFeature"],
-  [/walmart_\w+/gi, "沃尔玛数据", "toolRealNames.walmartAny"],
-  [/tiktok_\w+/gi, "TikTok数据", "toolRealNames.tiktokAny"],
   [/favorite_keyword\w*/gi, "词库管理", "toolRealNames.favoriteKeyword"],
   [/get_favorite_keyword\w*/gi, "词库查询", "toolRealNames.getFavoriteKeyword"],
 ];
@@ -106,13 +106,13 @@ const internalFileNames: readonly Rule[] = [
 
 export const RULE_GROUPS = {
   dataSourceBrand,
+  internalFileNames,
   agentRuntimeBrand,
   modelNames,
   competitorTools,
   protocolKeywords,
   toolRealNames,
   internalModuleNames,
-  internalFileNames,
 } as const;
 
 export type RuleGroupName = keyof typeof RULE_GROUPS;

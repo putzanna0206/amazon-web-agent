@@ -43,7 +43,7 @@ const SKILL_PROMPTS = [
 export default function ChatPage() {
   const { user, agent, loading, logout } = useAuth();
   const router = useRouter();
-  const store = useSessions();
+  const store = useSessions(user?.id || "");
   const { sessions, activeId, activeSession } = store;
   const [input, setInput] = useState("");
   const [streamingIds, setStreamingIds] = useState<Set<string>>(new Set());
@@ -150,7 +150,14 @@ export default function ChatPage() {
       </div>
     );
   }
-  if (!user || !agent) return null;
+  if (!user || !agent) {
+    return (
+      <div style={{ height: "100vh", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 12 }}>
+        <div style={{ color: "var(--color-text-muted)", fontSize: 14 }}>系统配置中，请刷新页面重试</div>
+        <button onClick={() => { localStorage.removeItem("fc_user"); window.location.href = "/login"; }} style={{ fontSize: 13, color: "var(--brand-accent)", background: "none", border: "none", cursor: "pointer" }}>重新登录</button>
+      </div>
+    );
+  }
 
   return (
     <div style={{ height: "100vh", display: "flex" }}>
@@ -372,7 +379,7 @@ function MessageBubble({ msg, agentId, streaming, phase }: { msg: ChatMessage; a
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--brand-accent)" strokeWidth="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" /></svg>
       </div>
       <div style={{ flex: 1, fontSize: 14, lineHeight: 1.6, overflow: "hidden" }}>
-        <MarkdownText text={display} streaming={streaming} />
+        <MarkdownText text={display} streaming={streaming} agentId={agentId} />
         {msg.files && msg.files.length > 0 && (
           <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 8 }}>
             {msg.files.map((f) => (

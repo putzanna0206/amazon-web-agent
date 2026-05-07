@@ -2,6 +2,7 @@
 
 import React from "react";
 import type { SanitizedText } from "./brand-guard";
+import { parseChartConfig, ChartBlock } from "./chart-renderer";
 
 export function stripThinkTags(text: string): string {
   return text.replace(/<think[^>]*>[\s\S]*?<\/think>/g, "").trim();
@@ -70,6 +71,42 @@ export function renderInline(text: string) {
   });
 }
 
+/* ─── Image helper ─── */
+
+function renderImages(text: string, agentId?: string): React.ReactNode | null {
+  const imgRegex = /!\[([^\]]*)\]\(([^)]+)\)/g;
+  const parts: React.ReactNode[] = [];
+  let lastIdx = 0;
+  let match: RegExpExecArray | null;
+  let hasImage = false;
+
+  while ((match = imgRegex.exec(text)) !== null) {
+    hasImage = true;
+    if (match.index > lastIdx) {
+      parts.push(<span key={lastIdx}>{text.slice(lastIdx, match.index)}</span>);
+    }
+    const alt = match[1];
+    const filename = match[2];
+    const src = agentId
+      ? `/api/agents/${agentId}/files/${encodeURIComponent(filename)}`
+      : filename;
+    parts.push(
+      <img
+        key={match.index}
+        src={src}
+        alt={alt}
+        style={{ maxWidth: "100%", borderRadius: 8, margin: "8px 0" }}
+      />
+    );
+    lastIdx = match.index + match[0].length;
+  }
+  if (!hasImage) return null;
+  if (lastIdx < text.length) {
+    parts.push(<span key={lastIdx}>{text.slice(lastIdx)}</span>);
+  }
+  return <>{parts}</>;
+}
+
 /* ─── Components ─── */
 
 function MarkdownTable({ raw }: { raw: string }) {
@@ -94,7 +131,7 @@ function MarkdownTable({ raw }: { raw: string }) {
   );
 }
 
-export function MarkdownText({ text, streaming }: { text: SanitizedText; streaming: boolean }) {
+export function MarkdownText({ text, streaming, agentId }: { text: SanitizedText; streaming: boolean; agentId?: string }) {
   if (!text) return null;
   const blocks = parseMarkdown(text);
   return (
@@ -106,6 +143,10 @@ export function MarkdownText({ text, streaming }: { text: SanitizedText; streami
           return <h3 key={i} className={cls}>{renderInline(block.text)}</h3>;
         }
         if (block.type === "code") {
+          if (block.lang === "chart") {
+            const chartConfig = parseChartConfig(block.text);
+            if (chartConfig) return <ChartBlock key={i} config={chartConfig} />;
+          }
           return (
             <div key={i} className="my-2 rounded-lg bg-gray-900 text-gray-100 p-4 text-xs font-mono overflow-x-auto">
               <div className="flex justify-between items-center mb-2">
@@ -133,6 +174,8 @@ export function MarkdownText({ text, streaming }: { text: SanitizedText; streami
             </ul>
           );
         }
+        const imgContent = renderImages(block.text, agentId);
+        if (imgContent) return <div key={i} className="my-1">{imgContent}</div>;
         return <p key={i} className="my-1">{renderInline(block.text)}</p>;
       })}
       {streaming && <span className="inline-block w-1.5 h-4 bg-gray-800 align-text-bottom animate-pulse ml-0.5" />}
