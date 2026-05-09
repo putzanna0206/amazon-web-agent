@@ -39,13 +39,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const agents = res.agents || [];
         const stored = localStorage.getItem("fc_user");
         if (stored) {
-          const { user: u, agent: a } = JSON.parse(stored);
-          setUser(u);
-          setAgent(agents[0] || a);
+          try {
+            const { user: u, agent: a } = JSON.parse(stored);
+            setUser(u);
+            setAgent(agents[0] || a);
+          } catch (e) {
+            console.error("Failed to parse stored user data:", e);
+            localStorage.removeItem("fc_user");
+          }
         }
       })
-      .catch(() => {
-        // Not logged in
+      .catch((error) => {
+        // Not logged in or API error
+        console.log("Auth check failed (expected if not logged in):", error.message);
         localStorage.removeItem("fc_user");
       })
       .finally(() => setLoading(false));
