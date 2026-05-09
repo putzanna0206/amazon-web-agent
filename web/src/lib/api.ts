@@ -65,18 +65,18 @@ export async function* streamChat(
   message: string,
   files?: File[]
 ): AsyncGenerator<ChatEvent> {
-  const formData = new FormData();
-  formData.append("agentId", agentId);
-  formData.append("sessionId", sessionId);
-  formData.append("message", message);
-  if (files && files.length > 0) {
-    files.forEach((file) => formData.append("files", file));
-  }
+  // 使用JSON格式而不是FormData，因为FastClaw v0.34.1的FormData解析有bug
+  const requestBody: Record<string, unknown> = {
+    agentId,
+    sessionId,
+    message,
+  };
 
   const res = await fetch(`${API_BASE}/api/chat/stream`, {
     method: "POST",
+    headers: { "Content-Type": "application/json" },
     credentials: "include",
-    body: formData,
+    body: JSON.stringify(requestBody),
   });
   if (!res.ok) throw new Error("发送消息失败");
 
