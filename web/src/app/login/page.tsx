@@ -39,35 +39,36 @@ export default function LoginPage() {
         </div>
         <form onSubmit={handleSubmit} className="space-y-4" style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
           <div>
+            <label htmlFor="username" style={{ display: "block", fontSize: 16, fontWeight: 500, marginBottom: 6, color: "#374151" }}>用户名</label>
             <input
+              id="username"
               type="text"
-              placeholder="用户名"
+              placeholder="请输入用户名"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              style={{ width: "100%", padding: "8px 12px", border: "1px solid #d1d5db", borderRadius: "8px", fontSize: "14px" }}
+              style={{ width: "100%", padding: "10px 14px", border: "1px solid #d1d5db", borderRadius: "8px", fontSize: "16px", outline: "none" }}
               required
             />
           </div>
           <div>
+            <label htmlFor="password" style={{ display: "block", fontSize: 16, fontWeight: 500, marginBottom: 6, color: "#374151" }}>密码</label>
             <input
+              id="password"
               type="password"
-              placeholder="密码"
+              placeholder="请输入密码"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              style={{ width: "100%", padding: "8px 12px", border: "1px solid #d1d5db", borderRadius: "8px", fontSize: "14px" }}
+              style={{ width: "100%", padding: "10px 14px", border: "1px solid #d1d5db", borderRadius: "8px", fontSize: "16px", outline: "none" }}
               required
             />
           </div>
           {error && (
-            <p className="text-sm text-red-600 text-center" style={{ fontSize: "14px", color: "#dc2626", textAlign: "center" }}>{error}</p>
+            <div style={{ padding: "10px 14px", background: "#fef2f2", borderRadius: 8, fontSize: 16, color: "#dc2626", textAlign: "center" }}>{error}</div>
           )}
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-2 px-4 bg-[var(--brand-accent)] hover:opacity-90 disabled:opacity-50 text-white text-sm font-medium rounded-lg transition-opacity"
-            style={{ width: "100%", padding: "8px 16px", backgroundColor: "#4f46e5", color: "white", fontSize: "14px", fontWeight: "500", border: "none", borderRadius: "8px", cursor: "pointer", opacity: loading ? 0.5 : 1 }}
+            style={{ width: "100%", padding: "12px 16px", backgroundColor: "#4f46e5", color: "white", fontSize: "16px", fontWeight: "600", border: "none", borderRadius: "8px", cursor: "pointer", opacity: loading ? 0.5 : 1, transition: "opacity 0.15s" }}
           >
             {loading ? "登录中..." : "登录"}
           </button>

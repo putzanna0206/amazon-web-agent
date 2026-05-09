@@ -41,7 +41,7 @@ const SKILL_PROMPTS = [
 ];
 
 export default function ChatPage() {
-  const { user, agent, loading, logout } = useAuth();
+  const { user, agent, loading, authError, logout } = useAuth();
   const router = useRouter();
   const store = useSessions(user?.id || "");
   const { sessions, activeId, activeSession } = store;
@@ -169,16 +169,55 @@ export default function ChatPage() {
 
   if (loading) {
     return (
-      <div style={{ height: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <div style={{ color: "var(--color-text-muted)", fontSize: 14 }}>加载中...</div>
+      <div style={{ height: "100vh", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 16 }}>
+        <div style={{ width: 32, height: 32, border: "3px solid #e5e7eb", borderTopColor: "#4f46e5", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
+        <div style={{ color: "var(--color-text-secondary)", fontSize: 16 }}>加载中...</div>
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       </div>
     );
   }
-  if (!user || !agent) {
+
+  if (authError === "unauthorized" || (!user && authError === null && !loading)) {
     return (
-      <div style={{ height: "100vh", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 12 }}>
-        <div style={{ color: "var(--color-text-muted)", fontSize: 14 }}>系统配置中，请刷新页面重试</div>
-        <button onClick={() => { localStorage.removeItem("fc_user"); window.location.href = "/login"; }} style={{ fontSize: 13, color: "var(--brand-accent)", background: "none", border: "none", cursor: "pointer" }}>重新登录</button>
+      <div style={{ height: "100vh", display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: "#f9fafb" }}>
+        <div style={{ textAlign: "center", maxWidth: 360 }}>
+          <div style={{ width: 48, height: 48, margin: "0 auto 16px", borderRadius: 12, background: "#fef2f2", display: "grid", placeItems: "center" }}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>
+          </div>
+          <h2 style={{ fontSize: 20, fontWeight: 600, marginBottom: 8 }}>请先登录</h2>
+          <p style={{ fontSize: 15, color: "#6b7280", marginBottom: 24 }}>登录后即可使用分析工具</p>
+          <button onClick={() => { localStorage.removeItem("fc_user"); window.location.href = "/login"; }} style={{ padding: "10px 32px", fontSize: 16, fontWeight: 600, color: "white", backgroundColor: "#4f46e5", border: "none", borderRadius: 8, cursor: "pointer" }}>前往登录</button>
+        </div>
+      </div>
+    );
+  }
+
+  if (authError === "server_error") {
+    return (
+      <div style={{ height: "100vh", display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: "#f9fafb" }}>
+        <div style={{ textAlign: "center", maxWidth: 360 }}>
+          <div style={{ width: 48, height: 48, margin: "0 auto 16px", borderRadius: 12, background: "#fef9c3", display: "grid", placeItems: "center" }}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#ca8a04" strokeWidth="2"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
+          </div>
+          <h2 style={{ fontSize: 20, fontWeight: 600, marginBottom: 8 }}>服务暂时不可用</h2>
+          <p style={{ fontSize: 15, color: "#6b7280", marginBottom: 24 }}>后端服务未响应，请稍后重试</p>
+          <button onClick={() => window.location.reload()} style={{ padding: "10px 32px", fontSize: 16, fontWeight: 600, color: "white", backgroundColor: "#4f46e5", border: "none", borderRadius: 8, cursor: "pointer" }}>重试</button>
+        </div>
+      </div>
+    );
+  }
+
+  if (authError === "no_agent" || (!agent && user)) {
+    return (
+      <div style={{ height: "100vh", display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: "#f9fafb" }}>
+        <div style={{ textAlign: "center", maxWidth: 360 }}>
+          <div style={{ width: 48, height: 48, margin: "0 auto 16px", borderRadius: 12, background: "#eff6ff", display: "grid", placeItems: "center" }}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" strokeWidth="2"><path d="M12 2a5 5 0 0 1 5 5v3a5 5 0 0 1-10 0V7a5 5 0 0 1 5-5z" /><path d="M2 12h2m16 0h2M12 2v2m0 16v2" /></svg>
+          </div>
+          <h2 style={{ fontSize: 20, fontWeight: 600, marginBottom: 8 }}>Agent 未配置</h2>
+          <p style={{ fontSize: 15, color: "#6b7280", marginBottom: 24 }}>请在 FastClaw 管理后台创建 Agent 并配置 LLM Provider</p>
+          <button onClick={() => window.location.href = "http://localhost:18953"} style={{ padding: "10px 32px", fontSize: 16, fontWeight: 600, color: "white", backgroundColor: "#4f46e5", border: "none", borderRadius: 8, cursor: "pointer" }}>打开管理后台</button>
+        </div>
       </div>
     );
   }
@@ -252,7 +291,7 @@ export default function ChatPage() {
           </div>
 
           <div style={{ padding: 12, borderTop: "1px solid var(--color-border)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <span style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>{user.username}</span>
+            <span style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>{user!.username}</span>
             <button
               onClick={() => { logout(); router.push("/login"); }}
               style={{ fontSize: 12, color: "var(--color-text-muted)", border: "none", background: "none", cursor: "pointer" }}
@@ -294,7 +333,7 @@ export default function ChatPage() {
           <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "0 24px 80px" }}>
             <div style={{ marginBottom: 6, display: "inline-flex", alignItems: "center", gap: 8, height: 28, padding: "0 10px", border: "1px solid var(--color-border)", borderRadius: 999, background: "white", fontSize: 12, fontFamily: "ui-monospace, monospace", color: "var(--color-text-secondary)" }}>
               <span className="mini-dot" style={{ width: 6, height: 6, background: "var(--brand-accent)" }}></span>
-              ready for analysis
+              准备就绪，开始分析
             </div>
             <h1 style={{ fontSize: 30, fontWeight: 600, letterSpacing: "-0.02em", marginBottom: 8 }}>选择模板开始分析</h1>
             <p style={{ color: "var(--color-text-secondary)", fontSize: 15, marginBottom: 28, textAlign: "center", maxWidth: 520 }}>
@@ -409,7 +448,7 @@ export default function ChatPage() {
                     <MessageBubble
                       key={`${activeId}-${i}`}
                       msg={msg}
-                      agentId={agent.id}
+                      agentId={agent!.id}
                       streaming={streaming && i === messages.length - 1}
                       phase={streaming && i === messages.length - 1 ? phase : undefined}
                     />

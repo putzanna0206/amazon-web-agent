@@ -20,6 +20,7 @@ interface AuthContextType {
   user: User | null;
   agent: Agent | null;
   loading: boolean;
+  authError: "unauthorized" | "server_error" | "no_agent" | null;
   login: (username: string, password: string) => Promise<void>;
   logout: () => void;
 }
@@ -30,29 +31,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [agent, setAgent] = useState<Agent | null>(null);
   const [loading, setLoading] = useState(true);
+  const [authError, setAuthError] = useState<"unauthorized" | "server_error" | "no_agent" | null>(null);
 
   useEffect(() => {
-    // Check if already logged in
     getAgents()
       .then(async (res) => {
-        // Session is valid — prefer fresh agent data from API
         const agents = res.agents || [];
         const stored = localStorage.getItem("fc_user");
         if (stored) {
           try {
             const { user: u, agent: a } = JSON.parse(stored);
             setUser(u);
-            setAgent(agents[0] || a);
+            const resolved = agents[0] || a;
+            setAgent(resolved);
+            if (!resolved) setAuthError("no_agent");
           } catch (e) {
             console.error("Failed to parse stored user data:", e);
             localStorage.removeItem("fc_user");
           }
         }
       })
-      .catch((error) => {
-        // Not logged in or API error
-        console.log("Auth check failed (expected if not logged in):", error.message);
+      .catch((error: Error & { status?: number }) => {
+        console.log("Auth check failed:", error.message);
         localStorage.removeItem("fc_user");
+        if (error.status === 401) {
+          setAuthError("unauthorized");
+        } else {
+          setAuthError("server_error");
+        }
       })
       .finally(() => setLoading(false));
   }, []);
@@ -73,7 +79,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, agent, loading, login, logout }}>
+    <AuthContext.Provider value={{ user, agent, loading, authError, login, logout }}>
       {children}
     </AuthContext.Provider>
   );

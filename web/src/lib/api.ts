@@ -13,7 +13,11 @@ export async function login(username: string, password: string) {
 
 export async function getAgents() {
   const res = await fetch(`${API_BASE}/api/agents`, { credentials: "include" });
-  if (!res.ok) throw new Error("获取 Agent 列表失败");
+  if (!res.ok) {
+    const err = new Error("获取 Agent 列表失败") as Error & { status: number };
+    err.status = res.status;
+    throw err;
+  }
   return res.json();
 }
 
