@@ -50,6 +50,8 @@ export default function ChatPage() {
   const [phaseMap, setPhaseMap] = useState<Map<string, StreamPhase>>(new Map());
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [refPanelOpen, setRefPanelOpen] = useState(true);
+  const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -94,9 +96,20 @@ export default function ChatPage() {
       if (!msg || !agent || !activeId) return;
       if (streamingIds.has(activeId)) return;
       setInput("");
+      setAttachedFiles([]);
       setStreamingIds((prev) => new Set(prev).add(activeId));
 
       const sid = activeId;
+
+      // Upload files and prepare message
+      const formData = new FormData();
+      formData.append("agentId", agent.id);
+      formData.append("sessionId", sid);
+      formData.append("message", msg);
+      attachedFiles.forEach((file) => {
+        formData.append("files", file);
+      });
+
       store.appendMessages(sid, [
         { role: "user", content: msg },
         { role: "assistant", content: "" },
@@ -106,7 +119,18 @@ export default function ChatPage() {
       const files: { path: string; name: string }[] = [];
 
       try {
-        for await (const ev of runChatTurn({ agentId: agent.id, sessionId: sid, message: msg })) {
+        // Upload files first if any
+        if (attachedFiles.length > 0) {
+          const uploadRes = await fetch("/api/upload", {
+            method: "POST",
+            body: formData,
+          });
+          if (!uploadRes.ok) throw new Error("文件上传失败");
+          const uploadResult = await uploadRes.json();
+          // File paths will be returned by the backend
+        }
+
+        for await (const ev of runChatTurn({ agentId: agent.id, sessionId: sid, message: msg, files: attachedFiles })) {
           if (ev.type === "phase") {
             setPhase(sid, ev.phase);
           } else if (ev.type === "content") {
@@ -133,7 +157,7 @@ export default function ChatPage() {
         setPhase(sid, null);
       }
     },
-    [input, streamingIds, agent, activeId, setPhase, store]
+    [input, streamingIds, agent, activeId, setPhase, store, attachedFiles]
   );
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -285,6 +309,44 @@ export default function ChatPage() {
               ))}
             </div>
             <div style={{ width: "100%", maxWidth: 560 }}>
+              {attachedFiles.length > 0 && (
+                <div style={{ marginBottom: 12, display: "flex", flexWrap: "wrap", gap: 8 }}>
+                  {attachedFiles.map((file, i) => (
+                    <div
+                      key={i}
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 6,
+                        padding: "6px 10px",
+                        background: "rgba(79,70,229,0.08)",
+                        borderRadius: 8,
+                        fontSize: 12,
+                        color: "var(--brand-accent)"
+                      }}
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                        <polyline points="14 2 14 8 20 8" />
+                      </svg>
+                      <span style={{ maxWidth: 150, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {file.name}
+                      </span>
+                      <button
+                        onClick={() => setAttachedFiles((prev) => prev.filter((_, idx) => idx !== i))}
+                        style={{ background: "none", border: "none", cursor: "pointer", color: "inherit", padding: 2, opacity: 0.6 }}
+                        onMouseEnter={(e) => { e.currentTarget.style.opacity = "1"; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.opacity = "0.6"; }}
+                      >
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <line x1="18" y1="6" x2="6" y2="18" />
+                          <line x1="6" y1="6" x2="18" y2="18" />
+                        </svg>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
               <div className="composer">
                 <textarea
                   ref={textareaRef}
@@ -295,7 +357,41 @@ export default function ChatPage() {
                   disabled={streaming}
                 />
                 <div className="composer-bar">
-                  <span className="composer-hint">Enter 发送 · Shift Enter 换行</span>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      multiple
+                      accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt"
+                      style={{ display: "none" }}
+                      onChange={(e) => {
+                        const files = Array.from(e.target.files || []);
+                        setAttachedFiles((prev) => [...prev, ...files]);
+                      }}
+                    />
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={streaming}
+                      style={{
+                        padding: "4px 8px",
+                        borderRadius: 6,
+                        border: "none",
+                        background: "none",
+                        cursor: streaming ? "not-allowed" : "pointer",
+                        color: "var(--color-text-secondary)",
+                        opacity: streaming ? 0.5 : 1,
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 4
+                      }}
+                      title="上传文件"
+                    >
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+                      </svg>
+                    </button>
+                    <span className="composer-hint">Enter 发送 · Shift Enter 换行</span>
+                  </div>
                   <button className="send-btn" onClick={() => sendMessage()} disabled={streaming || !input.trim()}>
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="22" y1="2" x2="11" y2="13" /><polygon points="22 2 15 22 11 13 2 9 22 2" /></svg>
                   </button>
@@ -324,6 +420,44 @@ export default function ChatPage() {
             </div>
             <div style={{ flexShrink: 0, borderTop: "1px solid var(--color-border)", padding: "12px 16px" }}>
               <div style={{ maxWidth: 720, margin: "0 auto" }}>
+                {attachedFiles.length > 0 && (
+                  <div style={{ marginBottom: 12, display: "flex", flexWrap: "wrap", gap: 8 }}>
+                    {attachedFiles.map((file, i) => (
+                      <div
+                        key={i}
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 6,
+                          padding: "6px 10px",
+                          background: "rgba(79,70,229,0.08)",
+                          borderRadius: 8,
+                          fontSize: 12,
+                          color: "var(--brand-accent)"
+                        }}
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                          <polyline points="14 2 14 8 20 8" />
+                        </svg>
+                        <span style={{ maxWidth: 150, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {file.name}
+                        </span>
+                        <button
+                          onClick={() => setAttachedFiles((prev) => prev.filter((_, idx) => idx !== i))}
+                          style={{ background: "none", border: "none", cursor: "pointer", color: "inherit", padding: 2, opacity: 0.6 }}
+                          onMouseEnter={(e) => { e.currentTarget.style.opacity = "1"; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.opacity = "0.6"; }}
+                        >
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <line x1="18" y1="6" x2="6" y2="18" />
+                            <line x1="6" y1="6" x2="18" y2="18" />
+                          </svg>
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
                 <div className="composer">
                   <textarea
                     value={input}
@@ -333,7 +467,41 @@ export default function ChatPage() {
                     disabled={streaming}
                   />
                   <div className="composer-bar">
-                    <span className="composer-hint">Enter 发送 · Shift Enter 换行</span>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        multiple
+                        accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt"
+                        style={{ display: "none" }}
+                        onChange={(e) => {
+                          const files = Array.from(e.target.files || []);
+                          setAttachedFiles((prev) => [...prev, ...files]);
+                        }}
+                      />
+                      <button
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={streaming}
+                        style={{
+                          padding: "4px 8px",
+                          borderRadius: 6,
+                          border: "none",
+                          background: "none",
+                          cursor: streaming ? "not-allowed" : "pointer",
+                          color: "var(--color-text-secondary)",
+                          opacity: streaming ? 0.5 : 1,
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 4
+                        }}
+                        title="上传文件"
+                      >
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+                        </svg>
+                      </button>
+                      <span className="composer-hint">Enter 发送 · Shift Enter 换行</span>
+                    </div>
                     <button className="send-btn" onClick={() => sendMessage()} disabled={streaming || !input.trim()}>
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="22" y1="2" x2="11" y2="13" /><polygon points="22 2 15 22 11 13 2 9 22 2" /></svg>
                     </button>

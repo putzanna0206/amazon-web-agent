@@ -62,13 +62,21 @@ export interface ChatEvent {
 export async function* streamChat(
   agentId: string,
   sessionId: string,
-  message: string
+  message: string,
+  files?: File[]
 ): AsyncGenerator<ChatEvent> {
+  const formData = new FormData();
+  formData.append("agentId", agentId);
+  formData.append("sessionId", sessionId);
+  formData.append("message", message);
+  if (files && files.length > 0) {
+    files.forEach((file) => formData.append("files", file));
+  }
+
   const res = await fetch(`${API_BASE}/api/chat/stream`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
     credentials: "include",
-    body: JSON.stringify({ agentId, sessionId, message }),
+    body: formData,
   });
   if (!res.ok) throw new Error("发送消息失败");
 

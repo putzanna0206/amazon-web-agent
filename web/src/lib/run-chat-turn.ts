@@ -16,11 +16,12 @@ export type TurnEvent =
 export type StreamChatFn = (
   agentId: string,
   sessionId: string,
-  message: string
+  message: string,
+  files?: File[]
 ) => AsyncGenerator<ChatEvent>;
 
 export async function* runChatTurn(
-  input: { agentId: string; sessionId: string; message: string },
+  input: { agentId: string; sessionId: string; message: string; files?: File[] },
   streamFn: StreamChatFn = defaultStreamChat
 ): AsyncGenerator<TurnEvent> {
   yield { type: "phase", phase: "thinking" };
