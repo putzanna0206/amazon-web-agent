@@ -25,6 +25,12 @@ async function proxy(req: NextRequest, method: string) {
   const ct = upstream.headers.get("Content-Type");
   if (ct) resHeaders.set("Content-Type", ct);
 
+  // Forward Set-Cookie headers from FastClaw
+  const setCookie = upstream.headers.get("Set-Cookie");
+  if (setCookie) {
+    resHeaders.set("Set-Cookie", setCookie);
+  }
+
   return new Response(upstream.body, {
     status: upstream.status,
     headers: resHeaders,
