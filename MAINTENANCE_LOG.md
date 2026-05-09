@@ -7,7 +7,31 @@
 
 ## 🔥 最新维护记录
 
-### 2026-05-09 - 完整QA测试和功能修复
+### 2026-05-09 - 聊天请求失败问题修复
+
+**维护类型**: 紧急Bug修复
+**执行人**: AI Agent
+**影响范围**: API代理和聊天功能
+
+#### 修复的问题
+
+**问题描述**: 用户反馈"显示请求失败"无法使用聊天功能
+
+**根本原因**:
+1. API代理使用`req.text()`处理请求体，破坏了FormData的multipart格式
+2. 导致FastClaw后端无法正确解析聊天流式请求
+3. 返回JSON解析错误："No number after minus sign in JSON at position 1"
+
+**修复方案**:
+- **文件**: `web/src/app/api/[...path]/route.ts`
+- **变更**: 将`req.text()`改为`req.blob()`来正确处理FormData
+- **原理**: `blob()`方法能完整保留multipart/form-data格式，包括boundary信息
+- **Commit**: 待提交
+
+**验证状态**:
+- ✅ API代理代码已修复
+- ✅ Next.js服务已重启
+- 🔲 需要用户在实际浏览器中验证聊天功能
 
 **维护类型**: 功能修复 + QA测试
 **执行人**: AI QA Agent

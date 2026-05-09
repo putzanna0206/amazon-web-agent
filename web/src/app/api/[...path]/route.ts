@@ -8,16 +8,21 @@ async function proxy(req: NextRequest, method: string) {
   const search = req.nextUrl.search;
   const target = `${FASTCLAW_BASE}/api/${path}${search}`;
 
+  // Copy all headers except Content-Length which will be recalculated
   const headers: Record<string, string> = {
-    "Content-Type":
-      req.headers.get("Content-Type") || "application/json",
     cookie: req.headers.get("cookie") || "",
   };
 
-  const body =
-    method !== "GET" && method !== "HEAD"
-      ? await req.text()
-      : undefined;
+  // Preserve Content-Type if present
+  const contentType = req.headers.get("Content-Type");
+  if (contentType) {
+    headers["Content-Type"] = contentType;
+  }
+
+  // Get the request body using blob() to preserve FormData
+  const body = method !== "GET" && method !== "HEAD"
+    ? await req.blob()
+    : undefined;
 
   const upstream = await fetch(target, { method, headers, body });
 

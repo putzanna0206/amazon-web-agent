@@ -1,0 +1,19 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "web",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 3000,
+      "cwd": "/Users/7aoyi/amazon-web-agent/web"
+    },
+    {
+      "name": "fastclaw",
+      "runtimeExecutable": "make",
+      "runtimeArgs": ["dev"],
+      "port": 18953,
+      "cwd": "/Users/7aoyi/amazon-web-agent/fastclaw"
+    }
+  ]
+}

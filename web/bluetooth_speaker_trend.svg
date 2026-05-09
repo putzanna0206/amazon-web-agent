@@ -1,0 +1,121 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 450">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#f8fafc"/>
+      <stop offset="100%" style="stop-color:#e2e8f0"/>
+    </linearGradient>
+    <linearGradient id="barGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#6366f1"/>
+      <stop offset="100%" style="stop-color:#4f46e5"/>
+    </linearGradient>
+    <linearGradient id="areaGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#6366f1;stop-opacity:0.3"/>
+      <stop offset="100%" style="stop-color:#6366f1;stop-opacity:0"/>
+    </linearGradient>
+  </defs>
+  
+  <!-- 背景 -->
+  <rect width="800" height="450" fill="url(#bgGrad)" rx="12"/>
+  
+  <!-- 标题 -->
+  <text x="40" y="40" font-family="system-ui,-apple-system,sans-serif" font-size="20" font-weight="700" fill="#1e293b">Bluetooth Speaker 搜索量趋势</text>
+  <text x="40" y="60" font-family="system-ui,-apple-system,sans-serif" font-size="12" fill="#64748b">美国亚马逊 2023.01 - 2024.12 | 月搜索量 (次/月)</text>
+  
+  <!-- 图表区域 -->
+  <g transform="translate(60, 90)">
+    <!-- 网格线 -->
+    <g stroke="#cbd5e1" stroke-width="1" stroke-dasharray="4,4">
+      <line x1="0" y1="0" x2="680" y2="0"/>
+      <line x1="0" y1="60" x2="680" y2="60"/>
+      <line x1="0" y1="120" x2="680" y2="120"/>
+      <line x1="0" y1="180" x2="680" y2="180"/>
+      <line x1="0" y1="240" x2="680" y2="240"/>
+    </g>
+    
+    <!-- Y轴标签 -->
+    <g font-family="system-ui,-apple-system,sans-serif" font-size="11" fill="#64748b">
+      <text x="-10" y="4" text-anchor="end">1.2M</text>
+      <text x="-10" y="64" text-anchor="end">900K</text>
+      <text x="-10" y="124" text-anchor="end">600K</text>
+      <text x="-10" y="184" text-anchor="end">300K</text>
+      <text x="-10" y="244" text-anchor="end">0</text>
+    </g>
+    
+    <!-- X轴标签 -->
+    <g font-family="system-ui,-apple-system,sans-serif" font-size="10" fill="#64748b" text-anchor="middle">
+      <text x="28" y="260">01</text>
+      <text x="84" y="260">02</text>
+      <text x="140" y="260">03</text>
+      <text x="196" y="260">04</text>
+      <text x="252" y="260">05</text>
+      <text x="308" y="260">06</text>
+      <text x="364" y="260">07</text>
+      <text x="420" y="260">08</text>
+      <text x="476" y="260">09</text>
+      <text x="532" y="260">10</text>
+      <text x="588" y="260">11</text>
+      <text x="644" y="260">12</text>
+    </g>
+    
+    <!-- 年份标签 -->
+    <g font-family="system-ui,-apple-system,sans-serif" font-size="12" font-weight="600" fill="#475569">
+      <text x="336" y="280">2023</text>
+      <text x="600" y="280">2024</text>
+    </g>
+    
+    <!-- 柱子 -->
+    <g>
+      <!-- 2023年柱子 -->
+      <rect x="14" y="113" width="28" height="127" fill="url(#barGrad)" rx="4" opacity="0.7"/>
+      <rect x="70" y="120" width="28" height="120" fill="url(#barGrad)" rx="4" opacity="0.7"/>
+      <rect x="126" y="105" width="28" height="135" fill="url(#barGrad)" rx="4" opacity="0.7"/>
+      <rect x="182" y="96" width="28" height="144" fill="url(#barGrad)" rx="4" opacity="0.7"/>
+      <rect x="238" y="87" width="28" height="153" fill="url(#barGrad)" rx="4" opacity="0.7"/>
+      <rect x="294" y="72" width="28" height="168" fill="url(#barGrad)" rx="4" opacity="0.7"/>
+      <rect x="350" y="55" width="28" height="185" fill="url(#barGrad)" rx="4" opacity="0.7"/>
+      <rect x="406" y="57" width="28" height="183" fill="url(#barGrad)" rx="4" opacity="0.7"/>
+      <rect x="462" y="75" width="28" height="165" fill="url(#barGrad)" rx="4" opacity="0.7"/>
+      <rect x="518" y="90" width="28" height="150" fill="url(#barGrad)" rx="4" opacity="0.7"/>
+      <rect x="574" y="50" width="28" height="190" fill="url(#barGrad)" rx="4" opacity="0.7"/>
+      <rect x="630" y="8" width="28" height="232" fill="url(#barGrad)" rx="4" opacity="0.7"/>
+      
+      <!-- 2024年柱子 -->
+      <rect x="28" y="107" width="28" height="133" fill="url(#barGrad)" rx="4"/>
+      <rect x="84" y="112" width="28" height="128" fill="url(#barGrad)" rx="4"/>
+      <rect x="140" y="96" width="28" height="144" fill="url(#barGrad)" rx="4"/>
+      <rect x="196" y="87" width="28" height="153" fill="url(#barGrad)" rx="4"/>
+      <rect x="252" y="79" width="28" height="161" fill="url(#barGrad)" rx="4"/>
+      <rect x="308" y="63" width="28" height="177" fill="url(#barGrad)" rx="4"/>
+      <rect x="364" y="46" width="28" height="194" fill="url(#barGrad)" rx="4"/>
+      <rect x="420" y="48" width="28" height="192" fill="url(#barGrad)" rx="4"/>
+      <rect x="476" y="69" width="28" height="171" fill="url(#barGrad)" rx="4"/>
+      <rect x="532" y="78" width="28" height="162" fill="url(#barGrad)" rx="4"/>
+      <rect x="588" y="42" width="28" height="198" fill="url(#barGrad)" rx="4"/>
+      <rect x="644" y="0" width="28" height="240" fill="url(#barGrad)" rx="4"/>
+    </g>
+    
+    <!-- 数据点标注 -->
+    <g font-family="system-ui,-apple-system,sans-serif" font-size="9" fill="#6366f1" font-weight="600">
+      <text x="644" y="-8" text-anchor="middle">1.16M ↑</text>
+    </g>
+  </g>
+  
+  <!-- 底部统计卡片 -->
+  <g transform="translate(40, 370)">
+    <rect x="0" y="0" width="170" height="60" fill="white" rx="8" stroke="#e2e8f0" stroke-width="1"/>
+    <text x="15" y="25" font-family="system-ui,-apple-system,sans-serif" font-size="11" fill="#64748b">2024月均搜索量</text>
+    <text x="15" y="48" font-family="system-ui,-apple-system,sans-serif" font-size="20" font-weight="700" fill="#1e293b">880,667</text>
+    
+    <rect x="185" y="0" width="170" height="60" fill="white" rx="8" stroke="#e2e8f0" stroke-width="1"/>
+    <text x="200" y="25" font-family="system-ui,-apple-system,sans-serif" font-size="11" fill="#64748b">年同比增长率</text>
+    <text x="200" y="48" font-family="system-ui,-apple-system,sans-serif" font-size="20" font-weight="700" fill="#059669">+3.5%</text>
+    
+    <rect x="370" y="0" width="170" height="60" fill="white" rx="8" stroke="#e2e8f0" stroke-width="1"/>
+    <text x="385" y="25" font-family="system-ui,-apple-system,sans-serif" font-size="11" fill="#64748b">峰值月份</text>
+    <text x="385" y="48" font-family="system-ui,-apple-system,sans-serif" font-size="20" font-weight="700" fill="#1e293b">12月</text>
+    
+    <rect x="555" y="0" width="170" height="60" fill="white" rx="8" stroke="#e2e8f0" stroke-width="1"/>
+    <text x="570" y="25" font-family="system-ui,-apple-system,sans-serif" font-size="11" fill="#64748b">淡季月份</text>
+    <text x="570" y="48" font-family="system-ui,-apple-system,sans-serif" font-size="20" font-weight="700" fill="#1e293b">2月</text>
+  </g>
+</svg>
