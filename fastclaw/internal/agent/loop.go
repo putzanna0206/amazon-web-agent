@@ -617,7 +617,9 @@ func (a *Agent) HandleMessage(ctx context.Context, msg bus.InboundMessage) strin
 			emitEvent(ctx, ChatEvent{Type: "done"})
 			return noProviderMsg
 		}
+		stopHeartbeat := a.startHeartbeat(ctx)
 		resp, err := a.provider.Chat(ctx, llmMessages, toolDefs, a.model, a.maxTokens, a.temperature)
+		stopHeartbeat()
 
 		// Hook: AfterModelCall
 		hcAfter := &HookContext{AgentName: a.name, Point: AfterModelCall, Messages: messages, Response: resp, Error: err, StartTime: hcBefore.StartTime, ChatID: msg.ChatID, UserID: a.ownerUserID}
@@ -958,7 +960,9 @@ func (a *Agent) HandleMessageStream(ctx context.Context, msg bus.InboundMessage)
 		hcBefore := &HookContext{AgentName: a.name, Point: BeforeModelCall, Messages: messages, ChatID: msg.ChatID, UserID: a.ownerUserID}
 		a.hooks.Run(ctx, hcBefore)
 
+		stopHeartbeat := a.startHeartbeat(ctx)
 		resp, err := a.provider.Chat(ctx, messages, toolDefs, a.model, a.maxTokens, a.temperature)
+		stopHeartbeat()
 
 		hcAfter := &HookContext{AgentName: a.name, Point: AfterModelCall, Messages: messages, Response: resp, Error: err, StartTime: hcBefore.StartTime, ChatID: msg.ChatID, UserID: a.ownerUserID}
 		a.hooks.Run(ctx, hcAfter)
@@ -1102,6 +1106,29 @@ func extractToolMeta(result string) (string, map[string]any) {
 		return strings.TrimPrefix(result, tools.MetaSandboxPrefix), map[string]any{"sandbox": true}
 	}
 	return result, nil
+}
+
+// startHeartbeat starts a goroutine that emits heartbeat SSE events every
+// 30 seconds. This keeps the connection alive through intermediate proxies
+// (Cloudflare Tunnel, etc.) that may close idle connections after ~2 minutes.
+// Returns a stop function that must be called when the guarded operation completes.
+func (a *Agent) startHeartbeat(ctx context.Context) func() {
+	done := make(chan struct{})
+	go func() {
+		ticker := time.NewTicker(30 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				emitEvent(ctx, ChatEvent{Type: "heartbeat"})
+			case <-done:
+				return
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+	return func() { close(done) }
 }
 
 // stringStream creates a StreamReader that yields a single string.

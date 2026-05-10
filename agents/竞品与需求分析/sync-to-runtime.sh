@@ -4,8 +4,8 @@
 
 set -e
 
-AGENT_HOME="$HOME/.fastclaw/agents/agt_26223160cd1acbfc5020/agent"
-AGENT_ID="agt_26223160cd1acbfc5020"
+AGENT_HOME="$HOME/.fastclaw/agents/agt_8443b1b15e52f2a9b8f8/agent"
+AGENT_ID="agt_8443b1b15e52f2a9b8f8"
 SRC="$(dirname "$0")"
 
 echo "=== 同步 Agent 知识源到运行时 ==="

@@ -26,8 +26,16 @@ async function proxy(req: NextRequest, method: string) {
 
   const upstream = await fetch(target, { method, headers, body });
 
+  const ct = upstream.headers.get("Content-Type") || "";
+
+  // Block upstream HTML responses — they indicate the request fell through
+  // to FastClaw's admin UI (e.g. /api/nonexistent), which would leak
+  // branded HTML through our proxy.
+  if (ct.includes("text/html")) {
+    return new Response("Not Found", { status: 404 });
+  }
+
   const resHeaders = new Headers();
-  const ct = upstream.headers.get("Content-Type");
   if (ct) resHeaders.set("Content-Type", ct);
 
   // Forward Set-Cookie headers from FastClaw

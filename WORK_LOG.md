@@ -1,379 +1,94 @@
-# AmaWebAgent 工作日志
+# 工作日志
 
-> **目的**: 记录每次技术操作、配置更改、问题诊断过程
-> **原则**: 所有关键操作必须记录，失败也要记录原因
-> **格式**: 时间倒序，最新的在上面
+> AI 每次完成有意义的变更后**主动追加**。倒序，简短，只记关键信息。
 
 ---
 
-## 🔥 **最新工作记录**
+## 2026-05-10 — SSE heartbeat 保活 + BUG-2 proxy 泄漏修复 + SOUL.md 同步 + QA
 
-### 2026-05-09 18:50 - 内存爆炸问题（进程管理错误）
+**SSE heartbeat 保活（FastClaw Fork 修改）**：
+- 根因：Cloudflare Tunnel 空闲 ~120s 后发送 RST_STREAM 切断 SSE 连接。MiniMax model call 耗时 2 分钟+时无 SSE 事件，触发超时
+- 修复：`fastclaw/internal/agent/loop.go` 新增 `startHeartbeat()` 方法，model call 期间每 30s 发 `{"type":"heartbeat"}` SSE 事件
+- 覆盖 `HandleMessage` 和 `HandleMessageStream` 两个入口
+- 验证：直连/本地 proxy 2m30s 长请求均成功，heartbeat 事件正常出现，前端静默忽略
+- 编译安装新二进制到 `~/.local/bin/fastclaw`，需 codesign --force --sign - 绕过 macOS provenance 检查
 
-**操作类型**: 🔴 严重操作错误
-**操作人**: AI Agent  
-**耗时**: 15分钟（发现问题）+ 5分钟（清理）
-**状态**: ✅ 已解决，系统恢复
+**BUG-2 catch-all proxy 泄漏 FastClaw admin HTML**：
+- 根因：`next.config.ts` 的 rewrites 把 `/api/:path*` 直接转发到 FastClaw，绕过了 `route.ts` 的 HTML 拦截逻辑
+- 修复 1：`web/src/app/api/[...path]/route.ts` 加 Content-Type 检查，上游返回 text/html 时返回 404
+- 修复 2：`web/next.config.ts` 删除 rewrites()（route handler 已做 proxy，rewrites 是死代码且优先级更高导致拦截失效）
+- 验证：`/api/nonexistent` 本地和外网均返回 404，不含 FastClaw 文字；正常 API（login/chat/stream）不受影响
 
-#### 问题症状
-- **用户报告**: "什么情况电脑又崩溃了" "你又启动什么导致内存爆了"
-- **系统表现**: 内存使用率接近100%（15G/16G），系统卡顿
-- **根本原因**: 创建了4000+个node进程，每个占用少量内存，累积导致内存爆炸
+**SOUL.md 同步**：
+- 仓库文件 12280B vs 数据库 5690B，不同步
+- 已通过 sqlite3 readfile 同步到 12280B
+- `agents/竞品与需求分析/sync-to-runtime.sh` agent ID 从旧 `agt_26223160cd1acbfc5020` 修正为 `agt_8443b1b15e52f2a9b8f8`
 
-#### 错误操作过程
-
-**我的错误操作**:
-1. 使用Agent工具的`run_in_background`参数启动Next.js
-2. 命令：`cd /Users/7aoyi/amazon-web-agent/web && npm run dev` (通过Agent后台模式)
-3. Next.js 16.2.4 + Turbopack首次编译时创建大量子进程
-4. Agent工具没有正确管理进程父子关系，导致子进程失控
-
-**错误表现**:
-```
-进程数量: 4000+ 个node进程
-内存占用: 从正常6G → 15G+
-系统状态: 卡顿，接近崩溃
-```
-
-#### 根本原因分析
-
-**为什么会爆炸：**
-
-1. **Agent工具的后台模式** - 不应该用来启动Node.js服务
-2. **Next.js 16.2.4 + Turbopack** - 首次编译会创建大量子进程
-3. **进程管理失控** - Agent工具没有正确管理进程组
-4. **过度工程化** - 用复杂的工具做简单的事情
-
-**正常情况应该是：**
-```bash
-# 直接启动，只用3-5个进程，内存占用~500MB
-npm run dev &
-```
-
-#### 解决方案
-
-**立即清理措施：**
-```bash
-# 1. 停止所有失控进程
-pkill -f "next dev"
-pkill -f "next-server"
-killall node
-
-# 2. 清理结果
-# 进程数从 4000+ → 7个
-# 内存从 15G → 14G（部分释放）
-```
-
-**正确启动方式：**
-```bash
-# 方法1: 简单后台运行
-npm run dev &
-
-# 方法2: 生产模式
-npm run build && npm start &
-
-# 方法3: 进程管理工具
-pm2 start npm --name "web" -- run dev
-```
-
-#### 验证结果
-
-- ✅ 所有失控进程已停止
-- ✅ 内存使用恢复正常（14G → 系统+应用正常占用）
-- ✅ 系统不再卡顿
-- ✅ 用户恢复正常使用
-
-#### 经验教训
-
-**关键错误：**
-1. **过度工程化** - 用Agent工具的后台模式管理常规Node.js服务
-2. **工具误用** - 开发工具的后台功能不适合管理长期运行的服务
-3. **缺乏验证** - 没有立即验证启动后的进程数量和内存占用
-
-**改进措施：**
-1. ❌ **不使用Agent工具启动服务** - 它不适合管理Node.js进程
-2. ✅ **直接启动服务** - 用`&`后台运行即可
-3. ✅ **立即验证** - 启动服务后立即检查进程数和内存
-4. ✅ **专业工具做专业事** - 长期运行的服务用pm2/systemd等
-
-**教训总结：**
-```
-简单问题复杂化 = 灾难
-npm run dev &        # ✅ 简单、可靠、3-5个进程
-Agent后台启动        # ❌ 复杂、失控、4000+个进程
-```
-
-#### 防止再次发生
-
-**操作前检查清单：**
-- [ ] 启动服务前，确认启动方式（直接运行 vs 工具管理）
-- [ ] 启动后立即检查进程数（`ps aux | grep node | wc -l`）
-- [ ] 启动后立即检查内存（`top -l 1 | grep PhysMem`）
-- [ ] 如果进程数>100，立即停止并重新评估
-
-**禁止操作：**
-- ❌ 使用Agent工具启动Node.js服务
-- ❌ 使用开发工具的后台模式管理生产服务
-- ❌ 在不验证效果的情况下启动后台服务
-
-#### 用户反馈
-
-**用户的明确批评：**
-> "为什么你会启动4000多个这种离谱操作"  
-> "之前怎么不会，这次就会"
-
-**用户的合理疑问：**
-- 之前直接启动没问题，为什么这次会爆炸？
-- 答案：之前是正常启动，这次错误使用了Agent工具后台模式
+**QA 完整测试（Exhaustive 级别）**：
+- Agent team 编排：QA 测试员（40+ 测试）+ 审查员（独立验证 + 补充 8 项遗漏场景）
+- 测试结果：38 PASS / 1 WARN / 1 FAIL，6 个 bug（1 HIGH / 3 MEDIUM / 2 COSMETIC）
+- BUG-2（HIGH）已修复并验证，质检 12 项全 PASS
+- 前端单元测试 95/95 通过
+- 结论：Ship-ready
 
 ---
 
-### 2026-05-09 16:30 - 聊天请求失败问题完全解决
+## 2026-05-10 — 工作日志规范 + 文档一致性修复 + 运行时部署
 
-**操作类型**: 🔴 紧急Bug修复 + 系统性诊断
-**操作人**: AI Agent
-**耗时**: 3.5小时（其中3小时低效尝试，30分钟系统性诊断）
-**状态**: ✅ 完全解决
-
-#### 问题症状
-- **用户报告**: "显示请求失败"
-- **错误信息**: "invalid character '-' in numeric literal"
-- **影响范围**: 所有聊天功能完全不可用
-
-#### 诊断过程
-
-**第一阶段：低效尝试（16:00-16:03，3小时）**
-- ❌ 检查Cloudflare Tunnel状态 - **方向错误**
-- ❌ 尝试各种FastClaw配置修改 - **盲目修改**
-- ❌ 升级FastClaw到v0.34.1 - **引入新问题**
-- ❌ 清空重建数据库sessions - **无效操作**
-- ❌ 反复修改FormData处理代码 - **治标不治本**
-
-**第二阶段：系统性诊断（16:03-16:30，30分钟）**
-- ✅ 使用 `/diagnose` 技能建立反馈循环
-- ✅ 创建自动化测试脚本 (`/tmp/test_frontend_flow.js`)
-- ✅ 逐层测试：健康检查 → 登录 → 获取agents → 聊天
-- ✅ 发现第一层问题：登录认证失败（401）
-- ✅ 发现第二层问题：FastClaw配置不完整
-- ✅ 发现第三层问题（核心）：FastClaw v0.34.1的FormData解析bug
-
-#### 根本原因分析
-
-**三层问题**:
-1. **表层**: 用户密码需要重置
-2. **中层**: Agent配置格式错误 (`model: "minimax"` 应为 `"minimax/MiniMax-M2.7"`)
-3. **核心**: FastClaw v0.34.1无法解析FormData格式
-
-**关键发现**:
-```
-JSON格式直接请求FastClaw: ✅ 200 OK，AI正常响应
-FormData格式直接请求FastClaw: ❌ 400 Error "invalid character '-' in numeric literal"
-```
-
-#### 解决方案
-
-**采用JSON格式替代FormData**:
-1. 修改 `src/lib/api.ts` - streamChat函数改用JSON格式
-2. 修改 `src/app/api/chat/stream/route.ts` - 优先处理JSON格式
-3. 更新数据库配置：
-   - 用户密码重置为 `123456`
-   - Agent配置更新为正确格式
-   - 添加MiniMax provider配置
-   - Agent quota从 `-1` 修复为 `999999`
-
-#### 验证结果
-
-```bash
-📋 JSON格式测试 - 通过Next.js前端
-状态码: 200
-响应: AI正常工作，正在读取身份文件...
-✅ 测试成功！JSON格式通过Next.js正常工作！
-```
-
-**功能测试**:
-- ✅ 用户登录: 正常
-- ✅ 获取agents: 正常
-- ✅ 聊天功能: AI正常响应，工具调用正常
-- ✅ 流式传输: Server-Sent Events正常
-
-#### 文件修改清单
-
-```
-modified:   MAINTENANCE_LOG.md
-modified:   web/src/lib/api.ts
-modified:   web/src/app/api/chat/stream/route.ts
-```
-
-#### 数据库修改
-
-```sql
--- 1. 用户密码重置
-UPDATE users SET password_hash = '...' WHERE username = '7aoYi';
-
--- 2. Agent配置更新
-UPDATE agents SET config = '{"model":"minimax/MiniMax-M2.7","maxTokens":8192}'
-WHERE id = 'agt_8443b1b15e52f2a9b8f8';
-
--- 3. 添加MiniMax provider
-INSERT INTO configs (id, kind, user_id, name, data) VALUES (
-  'provider_minimax', 'provider', 'u_9c3db8b2796ff2ba1f66', 'minimax',
-  '{"apiBase":"https://api.minimaxi.com/anthropic",...}'
-);
-
--- 4. Agent quota修复
-UPDATE users SET agent_quota = 999999 WHERE agent_quota = -1;
-```
-
-#### 经验教训
-
-**关键错误**:
-1. **完全误解项目使用场景** - 以为是外网访问，实际是本地使用
-2. **没有建立测试反馈循环** - 盲目修改配置，没有验证
-3. **忽略用户关键线索** - "我用fast claw agent沟通没问题啊"
-
-**改进措施**:
-1. ✅ 建立工作日志制度 - 本次记录
-2. ✅ 使用系统性诊断方法 - /diagnose技能
-3. ✅ 建立自动化测试脚本 - 快速反馈循环
-4. ✅ 重视用户反馈 - 认真理解项目上下文
-
-#### Git提交
-
-```
-commit 556786f
-fix: 完全解决聊天请求失败问题 - JSON格式替代方案
-
-- 发现FastClaw v0.34.1的FormData解析bug
-- 采用JSON格式替代，绕过bug
-- 修复用户认证、agent配置、provider配置
-- 建立自动化测试脚本，验证修复效果
-```
+- **日志规范**：CLAUDE.md 新增工作日志规则（AI 主动记录、唯一文件 WORK_LOG.md、30 天归档）
+- **日志合并**：重写 WORK_LOG.md，合并 PROJECT.md 和 MAINTENANCE_LOG.md 的日志，后两者不再记日志
+- **MAINTENANCE_LOG.md**：标记废弃
+- **Agent ID**：PROJECT.md 和真名代号映射从旧 ID `agt_641dd151f236281066ee` 修正为实际 `agt_8443b1b15e52f2a9b8f8`
+- **密码**：ARCHITECTURE.md/QUICKSTART.md 从 `ding1994` 修正为实际 `123456`
+- **包管理器**：统一为 pnpm，删 `package-lock.json`，ARCHITECTURE.md/QUICKSTART.md 的 npm → pnpm
+- **外网状态**：PROJECT.md Phase 3 外网暴露标记为已完成（xinxiannews.info 返回 200）
+- **运行时重建**：发现当前 agent `agt_8443b1b15e52f2a9b8f8` 是空壳（无 Skills/SOUL/MCP/Provider scope）
+  - 从旧 agent 目录复制 4 Skills + TOOLS.md
+  - SOUL.md 通过 API 写入数据库
+  - MCP Sorftime 配置加入 agent config
+  - Provider scope 从空修正为 `system`（Fork 版要求 scope 字段）
+  - 从 Fork 源码重新编译 FastClaw（修复 MCP Accept header）
+- **Sorftime API key 失效**：MCP 连接正常但返回 `NotAuthorization`，需用户更新 key
+- **Sorftime API key 更新**：用户提供新 key，更新数据库和 agent.json，工具调用恢复正常，返回完整数据
 
 ---
 
-## 📋 **工作日志模板**
+## 2026-05-09 — QA 修复 + 内存爆炸
 
-### [日期] - [简短标题]
+**聊天请求失败修复**：
+- 根因：FastClaw v0.34.1 无法解析 FormData，改用 JSON 格式绕过
+- 修改 `web/src/lib/api.ts`（streamChat 改 JSON）、`web/src/app/api/chat/stream/route.ts`（优先 JSON）
+- 数据库修复：用户密码重置、Agent 配置格式修正、Provider 配置补全、quota 修复
+- 当前状态：✅ 聊天正常
 
-**操作类型**: [Bug修复/功能开发/配置变更/性能优化/🔴操作错误/系统诊断]
-**操作人**: [姓名/AI Agent]
-**预计时间**: [预计耗时]
-**实际时间**: [实际耗时]
-**状态**: [进行中/已完成/失败]
+**QA 批量修复**：
+- 登录页空白 → 加内联样式 fallback（commit `00813b8`）
+- Cookie 转发失败 → API 代理补 Set-Cookie 转发（commit `7ceb826`）
+- 文件上传 UI 新增（commit `7ceb826`）
+- AuthProvider 错误处理增强（commit `51c54ae`）
+- 前端状态页和过渡页优化（commit `a672bfa`）
 
-#### 目标
-
-[描述这次操作要达成的目标]
-
-#### 操作步骤
-
-1. **步骤名称** [时间]
-   - 具体操作内容
-   - 涉及文件/配置
-   - 命令/代码
-   - 结果：成功/失败
-
-2. **步骤名称** [时间]
-   - ...
-
-#### 遇到的问题
-
-- **问题描述**: ...
-- **根本原因**: ...（如果是操作错误，要详细分析为什么会犯错）
-- **解决方案**: ...
-- **防止再次发生**: ...（具体的预防措施）
-- **耗时**: ...
-
-#### 修改清单
-
-**文件修改**:
-- `path/to/file1` - 修改说明
-- `path/to/file2` - 修改说明
-
-**配置修改**:
-- 配置项1: 旧值 → 新值
-- 配置项2: 旧值 → 新值
-
-**数据库修改**:
-```sql
--- 修改说明
-SQL语句;
-```
-
-#### 验证结果
-
-- [ ] 功能1测试通过
-- [ ] 功能2测试通过
-- [ ] 性能测试通过
-- [ ] 外网访问正常
-
-#### Git提交
-
-```
-commit hash
-提交消息
-```
-
-#### 经验教训
-
-**做得好的地方**:
-- ...
-
-**需要改进的地方**:
-- ...
-
-#### 相关链接
-
-- Issue/PR: #链接
-- 文档: 链接
-- 相关日志: 链接
+**内存爆炸**：
+- AI 错误使用 Agent 后台模式启动 Next.js，产生 4000+ node 进程
+- 已清理。教训：用 `npm run dev &` 直接启动，不用 Agent 工具管理 Node 进程
 
 ---
 
-## 🔄 **定期总结**
+## 2026-05-03 — FastClaw 源码分析 + 运行时同步 + 部署调研
 
-### 每周总结 (2026-05-XX)
-
-**本周主要工作**:
-- ...
-
-**重要变更**:
-- ...
-
-**遇到的问题**:
-- ...
-
-**下周计划**:
-- ...
-
-**技术债务**:
-- ...
+- FastClaw Fork 源码分析：搞清 SOUL 走数据库、skill 走文件系统、MCP 真名直传 LLM
+- 发现运行时三层防御改动从未 sync，全部重新同步（SOUL → 数据库 8604B、4 SKILL + TOOLS → 文件系统）
+- 压力测试 5 轮：L1/L2 通过，L3/L4 教育层失效（MiniMax 指令遵从度低）
+- 功能验证：foldable keyboard 分析正常
+- 外网部署调研：Cloudflare Tunnel 在 VPN 环境不可行（UDP 被拦截），备选 VPS 中转
+- 商业模式从"卖模板"调整为"免费引流 + 后端服务变现"
 
 ---
 
-## 📊 **统计数据**
+## 2026-05-02 — 项目梳理 + 三层防御 + 文档整理
 
-### 问题解决效率
-
-| 时间段 | 问题数量 | 平均解决时间 | 系统诊断比例 | 操作错误率 |
-|--------|----------|--------------|--------------|-----------|
-| 2026-05-09前 | 0 | 0 | 0% | 0% |
-| 2026-05-09 上午 | 1 | 3.5小时 | 30% | 0% |
-| 2026-05-09 下午 | 1 | 0.3小时 | 0% | 100% |
-| **总计** | **2** | **1.9小时** | **15%** | **50%** |
-
-### 目标
-
-- **系统诊断比例**: >80%（使用diagnose等系统性方法）
-- **平均解决时间**: <1小时（建立反馈循环后）
-- **盲目修改比例**: <10%（减少无依据的配置修改）
-- **操作错误率**: <5%（避免工具误用和过度工程化）
-- **工具误用次数**: 0次（零容忍）
-
----
-
-**工作日志说明**:
-- 每次技术操作都必须记录
-- 失败的操作也要记录原因
-- 定期回顾，总结经验教训
-- 建立问题解决的最佳实践
+- 项目全景梳理，清理废弃目录（`frontend/` `mcp-proxy/` `.playwright-mcp/`）
+- 三层品牌防御重构：源头去真名、语义化禁令、sanitize 加强
+- 新建 `docs/真名代号映射.md`（机密，不进 agent context）
+- 合并 PRD + spec + 进度文档为 `PROJECT.md`
+- 旧文档归档到 `docs/archive/`

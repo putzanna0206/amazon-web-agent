@@ -61,7 +61,7 @@ AmaWebAgent/
 node --version  # v18+ 推荐
 
 # 包管理器
-npm --version    # v9+
+pnpm --version   # v9+
 
 # Cloudflared (隧道工具)
 cloudflared --version
@@ -129,8 +129,8 @@ ingress:
 2. **启动Next.js生产服务器**
    ```bash
    cd ~/amazon-web-agent/web
-   npm run build  # 构建生产版本
-   npm start &      # 启动生产服务器
+   pnpm build  # 构建生产版本
+   ppnpm start &      # 启动生产服务器
    ```
 
 3. **启动Cloudflare隧道**
@@ -148,7 +148,7 @@ ps aux | grep -E "next|fastclaw|cloudflared"
 pkill -f "next|fastclaw|cloudflared"
 
 # 重启服务
-cd ~/amazon-web-agent/web && npm start &
+cd ~/amazon-web-agent/web && ppnpm start &
 cloudflared tunnel run amazon-agent &
 ```
 
@@ -161,7 +161,7 @@ cloudflared tunnel run amazon-agent &
 #### 1. 启动开发服务器
 ```bash
 cd ~/amazon-web-agent/web
-npm run dev
+pnpm dev
 # 访问 http://localhost:3000
 ```
 
@@ -176,7 +176,7 @@ npm run dev
 #### 1. 构建流程
 ```bash
 cd ~/amazon-web-agent/web
-npm run build
+pnpm build
 # 输出到 .next/ 目录
 ```
 
@@ -228,7 +228,7 @@ sqlite3 ~/.fastclaw/fastclaw.db "SELECT username, email, role FROM users;"
 #### 当前测试账号
 ```
 用户名: 7aoYi
-密码: ding1994
+密码: 123456
 角色: super_admin
 ```
 
@@ -239,7 +239,7 @@ sqlite3 ~/.fastclaw/fastclaw.db "SELECT username, email, role FROM users;"
 // 1. 用户填写表单
 // 2. 调用 /api/login
 POST /api/login
-Body: { "login": "7aoYi", "password": "ding1994" }
+Body: { "login": "7aoYi", "password": "123456" }
 
 // 3. 后端验证并设置Session Cookie
 Response: Set-Cookie: fastclaw_session=...
@@ -344,12 +344,12 @@ ps aux | grep "next"
 # 1. 测试API直接调用
 curl -X POST http://localhost:18953/api/login \
   -H "Content-Type: application/json" \
-  -d '{"login":"7aoYi","password":"ding1994"}'
+  -d '{"login":"7aoYi","password":"123456"}'
 
 # 2. 检查API代理Cookie转发
 curl -I -X POST http://localhost:3000/api/login \
   -H "Content-Type: application/json" \
-  -d '{"login":"7aoYi","password":"ding1994"}'
+  -d '{"login":"7aoYi","password":"123456"}'
 ```
 
 **解决方案**:
@@ -395,12 +395,12 @@ ps aux | grep fastclaw
 # 2. 测试直接API调用
 curl -X POST http://localhost:18953/api/login \
   -H "Content-Type: application/json" \
-  -d '{"login":"7aoYi","password":"ding1994"}'
+  -d '{"login":"7aoYi","password":"123456"}'
 
 # 3. 检查通过代理的调用
 curl -X POST http://localhost:3000/api/login \
   -H "Content-Type: application/json" \
-  -d '{"login":"7aoYi","password":"ding1994"}' \
+  -d '{"login":"7aoYi","password":"123456"}' \
   -v 2>&1 | grep "set-cookie"
 ```
 
@@ -454,14 +454,14 @@ cd ~/amazon-web-agent/web
 git pull origin main
 
 # 安装依赖 (如有更新)
-npm install
+pnpm install
 
 # 构建生产版本
-npm run build
+pnpm build
 
 # 重启服务
 pkill -f "next start"
-npm start &
+pnpm start &
 ```
 
 #### 2. 后端更新
@@ -478,7 +478,7 @@ pkill -f "next|fastclaw|cloudflared"
 
 # 按顺序启动
 fastclaw gateway --port 18953 &
-cd ~/amazon-web-agent/web && npm start &
+cd ~/amazon-web-agent/web && ppnpm start &
 cloudflared tunnel run amazon-agent &
 ```
 
@@ -504,7 +504,7 @@ module.exports = {
 
 #### 2. 生产构建检查
 ```bash
-npm run build
+pnpm build
 
 # 检查构建输出
 ls -lh .next/static/
@@ -553,8 +553,8 @@ find ~/.fastclaw/logs/ -name "*.log" -mtime +7 -delete
 ### 单元测试
 ```bash
 cd ~/amazon-web-agent/web
-npm test          # 运行所有测试
-npm run test:ci   # CI模式运行
+pnpm test          # 运行所有测试
+pnpm test:run   # 单次运行
 ```
 
 ### 手动测试清单

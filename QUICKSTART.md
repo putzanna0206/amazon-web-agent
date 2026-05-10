@@ -29,14 +29,14 @@ echo "✅ FastClaw已启动 (PID: $(lsof -ti:18953))"
 # 3. 启动Next.js前端
 echo "🌐 启动Next.js前端..."
 cd ~/amazon-web-agent/web
-npm run build > /tmp/next-build.log 2>&1
+pnpm build > /tmp/next-build.log 2>&1
 if [ $? -ne 0 ]; then
     echo "❌ Next.js构建失败，检查日志:"
     tail -20 /tmp/next-build.log
     exit 1
 fi
 
-npm start > /tmp/next-prod.log 2>&1 &
+pnpm start > /tmp/next-prod.log 2>&1 &
 sleep 3
 
 # 4. 检查Next.js是否启动
@@ -84,7 +84,7 @@ pkill -f "cloudflared tunnel"
 # 重启前端
 echo "🔄 重启Next.js..."
 cd ~/amazon-web-agent/web
-npm start > /tmp/next-prod.log 2>&1 &
+pnpm start > /tmp/next-prod.log 2>&1 &
 sleep 3
 
 # 重启隧道
@@ -215,12 +215,12 @@ du -h ~/.fastclaw/fastclaw.db
 # 测试登录API
 curl -X POST http://localhost:18953/api/login \
   -H "Content-Type: application/json" \
-  -d '{"login":"7aoYi","password":"ding1994"}'
+  -d '{"login":"7aoYi","password":"123456"}'
 
 # 测试通过代理的登录
 curl -X POST http://localhost:3000/api/login \
   -H "Content-Type: application/json" \
-  -d '{"login":"7aoYi","password":"ding1994"}' \
+  -d '{"login":"7aoYi","password":"123456"}' \
   -v 2>&1 | grep "set-cookie"
 ```
 
@@ -256,7 +256,7 @@ curl -I https://xinxiannews.info/chat
 
 ### 问题: 页面空白
 
-- [ ] 检查Next.js构建: `cd ~/amazon-web-agent/web && npm run build`
+- [ ] 检查Next.js构建: `cd ~/amazon-web-agent/web && pnpm build`
 - [ ] 查看Next.js日志: `tail -50 /tmp/next-prod.log`
 - [ ] 检查浏览器控制台错误
 - [ ] 验证内联样式存在: `curl http://localhost:3000/login | grep "style="`
@@ -269,7 +269,7 @@ curl -I https://xinxiannews.info/chat
 
 ```bash
 cd ~/amazon-web-agent/web
-npm run dev
+pnpm dev
 # 访问 http://localhost:3000
 ```
 
@@ -277,8 +277,8 @@ npm run dev
 
 ```bash
 cd ~/amazon-web-agent/web
-npm test           # 运行所有测试
-npm run test:watch  # 监视模式
+pnpm test           # 运行所有测试
+pnpm test:watch  # 监视模式
 ```
 
 ### 代码热重载

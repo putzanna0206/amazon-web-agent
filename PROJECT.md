@@ -180,7 +180,7 @@ amazon-web-agent/
 | 角色 | 仓库位置 | 运行位置 |
 |------|---------|---------|
 | SOUL.md | `agents/竞品与需求分析/SOUL.md` | **数据库**（agent_files 表，非文件系统） |
-| Skill 文件 | `agents/竞品与需求分析/skills/*.md` | `~/.fastclaw/agents/agt_641dd151f236281066ee/agent/skills/<英文目录名>/SKILL.md` |
+| Skill 文件 | `agents/竞品与需求分析/skills/*.md` | `~/.fastclaw/agents/agt_8443b1b15e52f2a9b8f8/agent/skills/<英文目录名>/SKILL.md` |
 | 客服手册 / tools / examples | `agents/竞品与需求分析/` 下 | **未部署**（FastClaw 只加载固定 bootstrap 文件） |
 | FastClaw 二进制 | 不在仓库 | `~/.local/bin/fastclaw` |
 | Fork 源码 | `fastclaw/`（vendored） | 编译输出到 `~/.local/bin/fastclaw` |
@@ -215,7 +215,7 @@ amazon-web-agent/
 
 | 配置项 | 值 |
 |--------|-----|
-| Agent ID | `agt_641dd151f236281066ee` |
+| Agent ID | `agt_8443b1b15e52f2a9b8f8` |
 | 模型 | `minimax/MiniMax-M2.7-highspeed`（备：zhipu-glm/glm-5.1） |
 | MCP 数据源 | Sorftime（56 个工具，直连） |
 | 外网暴露 | Cloudflare Tunnel（Mac Mini 部署时配置） |
@@ -356,7 +356,7 @@ SOUL.md 和客服手册.md 定义"敏感问题应对"话术，教 LLM 听到敏�
 #### Phase 1：搭建框架 ✅
 
 - [x] FastClaw Fork 安装运行（v0.27.0，localhost:18953）
-- [x] Agent 创建「竞品与需求分析」(agt_641dd151f236281066ee)
+- [x] Agent 创建「竞品与需求分析」(agt_8443b1b15e52f2a9b8f8)
 - [x] Provider 配置（MiniMax M2.7 + zhipu-glm 备选）
 - [x] MCP 数据源接入（Sorftime 56 工具，直连）
 - [x] 用户认证（7aoYi super_admin + testuser）
@@ -380,7 +380,7 @@ SOUL.md 和客服手册.md 定义"敏感问题应对"话术，教 LLM 听到敏�
 - [x] MCP schema 泄漏验证 — 工具真名在 `<think/>` 和 `<tool_use>` schema 出现，前端 stripThinkTags 移除 think 块，brand-guard 兜底替换正文中的泄漏，V1 可接受
 - [ ] 朋友压力测试（让会越狱的人攻击 agent）
 - [ ] 创建朋友账号（需名单）
-- [ ] 外网暴露（Cloudflare Tunnel 或 Tailscale Funnel）
+- [x] 外网暴露（Cloudflare Tunnel，域名 xinxiannews.info，已通）
 - [ ] 设置 API 月度成本上限
 - [ ] 邀请试用 + 收集反馈
 
@@ -444,31 +444,4 @@ SOUL.md 和客服手册.md 定义"敏感问题应对"话术，教 LLM 听到敏�
 
 ### 工作日志
 
-#### 2026-05-02
-
-**完成：**
-1. 项目全景梳理——发现 README 多处与实际不符
-2. 新建 CLAUDE.md——沉淀写作 SOP、协作约定、反模式
-3. 清理废弃目录——删 `frontend/` `mcp-proxy/` `.playwright-mcp/`（commit `0e0e5aa`）
-4. 评估 harness engineering 文档——判断对当前问题几乎无用，3 个思想后续可借鉴
-5. 三层防御重构——源头去真名、语义化禁令、sanitize 加强（commit `323bff3`）
-6. 新增 `docs/真名代号映射.md`、`docs/进度与待办.md`（commit `a03a388`）
-
-**用户决策：** 删低风险三个废弃目录（不删 backend/）、三层防御方案 OK、两次 commit OK
-
-#### 2026-05-03
-
-**完成：**
-1. 深入 FastClaw Fork 源码分析——搞清 SOUL.md 走数据库、skill 走文件系统、MCP 工具真名直传 LLM、运行时信息硬编码泄漏
-2. 确认运行时现状——三层防御改动从未 sync，数据库 SOUL.md 是旧版含真名，4 个 SKILL.md 用旧真名
-3. 合并 PRD + spec + 进度文档为 `PROJECT.md`（本项目百科）
-4. PRD.md、旧 spec、进度文档归档到 `docs/archive/`
-5. CLAUDE.md 精简为行为规则 + 指向 PROJECT.md 的引用
-6. MCP schema 泄漏验证——分析历史会话，工具真名仅出现在 `<think/>` 块，前端 strip 后不可见，V1 不需要 alias 层
-7. 合并客服手册进 SOUL.md、新增 TOOLS.md（数据系统+报告规范）
-8. 同步源文件到运行时——SOUL.md → 数据库（sqlite3 直接写入）、4 SKILL.md + TOOLS.md → 文件系统
-9. 压力测试 5 轮——一般好奇/品牌试探/越狱/反复纠缠/工具真名，全部通过
-10. 功能验证——foldable keyboard 分析正常，报告完整
-11. 公网部署方案调研——Cloudflare Tunnel 在当前网络（VPN）不可行（UDP 被拦截、TLS 握手失败），备选：换网络 / VPS 中转 / Mac Mini 直连
-12. 竞品对比分析——Dify/Coze 均支持 Agent 自主推理 + MCP，纯 Agent 能力差距不大，核心差异在海外模型代理和垂直工作流
-13. 商业模式讨论——从"卖模板"调整为"免费引流工具 + 后端服务变现"
+已迁移到 `WORK_LOG.md`，本章节不再维护。
