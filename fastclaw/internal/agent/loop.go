@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -590,6 +591,7 @@ func (a *Agent) HandleMessage(ctx context.Context, msg bus.InboundMessage) strin
 	var lastSig toolCallSig
 	consecutiveCount := 0
 	totalToolCalls := 0
+	wsSnapshot := a.snapshotWorkspace()
 
 	// ReAct loop
 	for i := 0; i < a.maxToolIterations; i++ {
@@ -634,7 +636,7 @@ func (a *Agent) HandleMessage(ctx context.Context, msg bus.InboundMessage) strin
 
 		if !resp.HasToolCalls() {
 			sess.Append(provider.Message{Role: "assistant", Content: resp.Content, Thinking: resp.Thinking, Timestamp: time.Now().UnixMilli(), RawAssistant: resp.RawAssistant})
-			emitEvent(ctx, ChatEvent{Type: "content", Data: map[string]any{"content": resp.Content}})
+			emitEvent(ctx, ChatEvent{Type: "content", Data: map[string]any{"content": a.sanitizeContent(resp.Content)}})
 			emitEvent(ctx, ChatEvent{Type: "done"})
 			a.runPostTurn(ctx, messages, totalToolCalls)
 			return resp.Content
@@ -642,7 +644,7 @@ func (a *Agent) HandleMessage(ctx context.Context, msg bus.InboundMessage) strin
 
 		// Emit assistant content before tool calls if present
 		if resp.Content != "" {
-			emitEvent(ctx, ChatEvent{Type: "content", Data: map[string]any{"content": resp.Content}})
+			emitEvent(ctx, ChatEvent{Type: "content", Data: map[string]any{"content": a.sanitizeContent(resp.Content)}})
 		}
 
 		// Emit tool_call events
@@ -770,6 +772,21 @@ func (a *Agent) HandleMessage(ctx context.Context, msg bus.InboundMessage) strin
 			// Check for MEDIA: protocol in tool output
 			if mediaPaths := extractMediaPaths(resultContent); len(mediaPaths) > 0 {
 				a.sendMediaFiles(msg, mediaPaths)
+				emitFileEventsForWeb(ctx, mediaPaths, nil)
+			}
+			// Check for MEDIA_WORKSPACE: (write_file via workspace store)
+			if wsPaths := extractWorkspaceFileRefs(resultContent); len(wsPaths) > 0 {
+				var userFacing []string
+				for _, p := range wsPaths {
+					if isUserFacingFile(p) {
+						userFacing = append(userFacing, p)
+					}
+				}
+				emitFileEventsForWeb(ctx, userFacing, userFacing)
+			}
+			// After exec, scan workspace for new user-facing files
+			if r.toolName == "exec" {
+				a.emitNewWorkspaceFiles(ctx, wsSnapshot)
 			}
 
 			toolMsg := provider.Message{
@@ -954,6 +971,7 @@ func (a *Agent) HandleMessageStream(ctx context.Context, msg bus.InboundMessage)
 	}
 	var lastSig toolCallSig
 	consecutiveCount := 0
+	wsSnapshot := a.snapshotWorkspace()
 
 	// ReAct loop - use Chat for tool iterations
 	for i := 0; i < a.maxToolIterations; i++ {
@@ -1086,6 +1104,20 @@ func (a *Agent) HandleMessageStream(ctx context.Context, msg bus.InboundMessage)
 
 			if mediaPaths := extractMediaPaths(resultContent); len(mediaPaths) > 0 {
 				a.sendMediaFiles(msg, mediaPaths)
+				emitFileEventsForWeb(ctx, mediaPaths, nil)
+			}
+			if wsPaths := extractWorkspaceFileRefs(resultContent); len(wsPaths) > 0 {
+				var userFacing []string
+				for _, p := range wsPaths {
+					if isUserFacingFile(p) {
+						userFacing = append(userFacing, p)
+					}
+				}
+				emitFileEventsForWeb(ctx, userFacing, userFacing)
+			}
+			// After exec, scan workspace for new user-facing files
+			if r.toolName == "exec" {
+				a.emitNewWorkspaceFiles(ctx, wsSnapshot)
 			}
 
 			toolMsg := provider.Message{Role: "tool", Content: resultContent, ToolCallID: tc.ID, Name: r.toolName, Metadata: meta}
@@ -1230,6 +1262,38 @@ func extractMediaPaths(output string) []string {
 	return paths
 }
 
+// extractWorkspaceFileRefs scans tool output for MEDIA_WORKSPACE: lines
+// emitted by write_file when writing through the workspace store.
+// Returns the relative paths (no filesystem check needed).
+func extractWorkspaceFileRefs(output string) []string {
+	var paths []string
+	for _, line := range strings.Split(output, "\n") {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "MEDIA_WORKSPACE:") {
+			path := strings.TrimSpace(strings.TrimPrefix(line, "MEDIA_WORKSPACE:"))
+			if path != "" {
+				paths = append(paths, path)
+			}
+		}
+	}
+	return paths
+}
+
+// emitFileEventsForWeb sends file-type ChatEvents through the SSE stream
+// so the web frontend can render download links.
+func emitFileEventsForWeb(ctx context.Context, fileNames []string, relativePaths []string) {
+	for i, name := range fileNames {
+		path := name
+		if i < len(relativePaths) {
+			path = relativePaths[i]
+		}
+		emitEvent(ctx, ChatEvent{Type: "file", Data: map[string]any{
+			"path": path,
+			"name": filepath.Base(name),
+		}})
+	}
+}
+
 // sendMediaFiles sends extracted MEDIA: files to the outbound bus.
 func (a *Agent) sendMediaFiles(msg bus.InboundMessage, mediaPaths []string) {
 	if len(mediaPaths) == 0 || a.messageBus == nil {
@@ -1246,4 +1310,95 @@ func (a *Agent) sendMediaFiles(msg bus.InboundMessage, mediaPaths []string) {
 	default:
 		slog.Warn("outbound channel full, dropping media message", "agent", a.name)
 	}
+}
+
+// isUserFacingFile uses an allowlist: only known user-facing file types
+// (documents, images, data) trigger file events. Everything else — source
+// code, fonts, build artifacts, config files — is silently ignored so the
+// user never sees download links for intermediate files.
+var userFacingExtensions = map[string]bool{
+	// Documents
+	".pdf": true, ".doc": true, ".docx": true, ".txt": true, ".md": true, ".rtf": true,
+	".odt": true, ".epub": true,
+	// Images
+	".png": true, ".jpg": true, ".jpeg": true, ".gif": true, ".bmp": true,
+	".svg": true, ".webp": true, ".ico": true, ".tiff": true, ".tif": true,
+	// Data / Spreadsheets
+	".csv": true, ".xlsx": true, ".xls": true, ".json": true,
+	".xml": true, ".tsv": true,
+	// Presentations
+	".ppt": true, ".pptx": true, ".key": true,
+	// Audio/Video
+	".mp3": true, ".mp4": true, ".wav": true, ".avi": true, ".mov": true,
+	".webm": true, ".flac": true, ".ogg": true,
+	// Archive (user may want to download)
+	".zip": true, ".tar": true, ".gz": true, ".rar": true, ".7z": true,
+}
+
+func isUserFacingFile(name string) bool {
+	ext := strings.ToLower(filepath.Ext(name))
+	return userFacingExtensions[ext]
+}
+
+// snapshotWorkspace returns the set of filenames in the agent's workspace directory.
+func (a *Agent) snapshotWorkspace() map[string]bool {
+	known := make(map[string]bool)
+	if a.workspacePath == "" {
+		return known
+	}
+	entries, err := os.ReadDir(a.workspacePath)
+	if err != nil {
+		return known
+	}
+	for _, e := range entries {
+		if !e.IsDir() {
+			known[e.Name()] = true
+		}
+	}
+	return known
+}
+
+// emitNewWorkspaceFiles scans the workspace for files added since the snapshot
+// and emits file events for user-facing ones.
+func (a *Agent) emitNewWorkspaceFiles(ctx context.Context, before map[string]bool) {
+	if a.workspacePath == "" {
+		return
+	}
+	entries, err := os.ReadDir(a.workspacePath)
+	if err != nil {
+		return
+	}
+	for _, e := range entries {
+		if e.IsDir() {
+			continue
+		}
+		name := e.Name()
+		if before[name] || !isUserFacingFile(name) {
+			continue
+		}
+		emitEvent(ctx, ChatEvent{Type: "file", Data: map[string]any{
+			"path": name,
+			"name": name,
+		}})
+		before[name] = true
+	}
+}
+
+// sanitizeContent strips all internal filesystem paths from LLM response
+// text so the user never sees /Users/.../.fastclaw/... or any agent-local
+// directory. Runs against every content SSE event.
+func (a *Agent) sanitizeContent(content string) string {
+	replacements := []string{
+		a.workspacePath,
+		a.homePath,
+		a.homeDir,
+	}
+	for _, p := range replacements {
+		if p == "" {
+			continue
+		}
+		content = strings.ReplaceAll(content, p+"/", "")
+		content = strings.ReplaceAll(content, p, "")
+	}
+	return content
 }

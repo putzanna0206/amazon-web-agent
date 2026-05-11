@@ -247,7 +247,7 @@ func makeWriteFile(r *Registry) ToolFunc {
 				strings.NewReader(args.Content), int64(len(args.Content)), ""); err != nil {
 				return "", fmt.Errorf("workspace put: %w", err)
 			}
-			return fmt.Sprintf("Written %d bytes to %s", len(args.Content), args.Path), nil
+			return fmt.Sprintf("Written %d bytes to %s\nMEDIA_WORKSPACE:%s", len(args.Content), args.Path, workspaceRef(r.sessionID, args.Path)), nil
 		}
 
 		// Identity files (SOUL.md / IDENTITY.md / ...) need to land in the
@@ -288,8 +288,19 @@ func makeWriteFile(r *Registry) ToolFunc {
 			return "", fmt.Errorf("write file: %w", err)
 		}
 
-		return fmt.Sprintf("Written %d bytes to %s", len(args.Content), fullPath), nil
+		return fmt.Sprintf("Written %d bytes to %s\nMEDIA:%s", len(args.Content), fullPath, fullPath), nil
 	}
+}
+
+// workspaceRef returns the storage-relative path for MEDIA_WORKSPACE.
+// When a session is active the workspace store scopes files under
+// sessions/<sid>/, so the download handler needs the full path to
+// locate the object via Get(agentID, "", fullPath).
+func workspaceRef(sessionID, path string) string {
+	if sessionID != "" {
+		return "sessions/" + sessionID + "/" + path
+	}
+	return path
 }
 
 // isSingleSegmentSystemFile matches "SOUL.md", "IDENTITY.md", etc. —
@@ -457,7 +468,7 @@ func registerSandboxedFile(r *Registry, ex sandbox.Executor) {
 				strings.NewReader(args.Content), int64(len(args.Content)), ""); err != nil {
 				return "", fmt.Errorf("workspace put: %w", err)
 			}
-			return fmt.Sprintf("Written %d bytes to %s", len(args.Content), args.Path), nil
+			return fmt.Sprintf("Written %d bytes to %s\nMEDIA_WORKSPACE:%s", len(args.Content), args.Path, workspaceRef(r.sessionID, args.Path)), nil
 		}
 		out, err := ex.WriteFile(ctx, args.Path, args.Content)
 		return MetaSandboxPrefix + out, err

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"log/slog"
+	"mime"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -438,7 +439,13 @@ func (s *Server) serveFileFromWorkspaceStore(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	defer rc.Close()
-	w.Header().Set("Content-Type", "application/octet-stream")
+	contentType := "application/octet-stream"
+	if ext := filepath.Ext(path); ext != "" {
+		if ct := mime.TypeByExtension(ext); ct != "" {
+			contentType = ct
+		}
+	}
+	w.Header().Set("Content-Type", contentType)
 	io.Copy(w, rc)
 }
 

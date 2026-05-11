@@ -160,6 +160,9 @@ func makeExecToolFull(r *Registry, sbCfg *SandboxConfig, envProvider SkillEnvPro
 		}
 
 		cmd := exec.CommandContext(execCtx, "sh", "-c", command)
+		if r != nil && r.userRoot != "" {
+			cmd.Dir = r.userRoot
+		}
 
 		// Inject skill-specific env vars if the command references a skill directory
 		if envProvider != nil && skillDirs != nil {

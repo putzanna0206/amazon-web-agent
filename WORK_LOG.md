@@ -4,6 +4,96 @@
 
 ---
 
+## 2026-05-11 — 文件下载 404 修复 + workspaceRef 路径对齐
+
+**问题**：write_file 通过 workspace store 存储文件时带 sessionId，文件落在 `sessions/{sid}/` 下，但 file event 报告的路径是裸文件名（无 session 前缀），前端构造的下载 URL 匹配不到 → 404
+
+**根因**：`MEDIA_WORKSPACE:` 标记只输出用户传入的相对路径，不含 workspace store 的 session 前缀
+
+**修复**：
+- `tools/file.go`：新增 `workspaceRef()` 辅助函数，sessionId 非空时返回 `sessions/{sid}/{path}`
+- 两处 `MEDIA_WORKSPACE:` 输出（普通版 + sandbox 版）改用 `workspaceRef()`
+- file event 的 `path` 字段现在包含完整存储路径，前端下载 URL 直接可用
+- exec 创建的文件不受影响（直接写入 workspace root，无 session 前缀）
+
+**验证**：
+- write_file 创建文件 → file event 路径含 `sessions/{sid}/` 前缀 → 下载 200 ✅
+- exec 创建文件 → file event 路径无前缀 → 下载 200 ✅
+- 单测 `TestWorkspaceRef` 4 用例全通过 ✅
+
+---
+
+## 2026-05-11 — 系统性加固（白名单 + 全路径清理 + 编译部署）
+
+**目标**：不是逐个修补，而是从机制上防止整类问题复发
+
+**加固 1 — isUserFacingFile 改为白名单**：
+- `loop.go`：原黑名单（逐个排除 .py/.sh/...）改为白名单机制
+- 只放行文档(.pdf/.doc/.txt/.md)、图片(.png/.jpg/.svg)、数据(.csv/.xlsx/.json)、音视频(.mp3/.mp4)、压缩包(.zip/.tar)
+- 任何不在白名单的扩展名（.py/.sh/.js/.go/.ttf/.log/.tmp/...）全部不触发 file event
+- 以后新增语言/格式不会再遗漏
+
+**加固 2 — sanitizeContent 覆盖所有内部路径**：
+- 原来只清理 workspacePath，现在同时清理 homePath、homeDir
+- `/Users/7aoyi/.fastclaw/workspaces/...`、`/Users/7aoyi/.fastclaw/agents/...`、`/Users/7aoyi/.fastclaw` 三层路径全部清除
+- 防止任何内部路径通过 LLM 响应泄漏到前端
+
+**加固 3 — 编译部署 + 前端 QA 验证**：
+- 编译新二进制到 `~/.local/bin/fastclaw`，codesign，重启 gateway
+- 通过 Next.js 前端代理(localhost:3000) 运行 21 项 QA 测试，全部 PASS
+- 白名单(.py=过滤/.md=放行/.ttf=过滤)、路径清理(无泄漏)、exec 检测(正常) 三项专项验证通过
+
+**已知限制**：
+- PDF 中文乱码：SOUL.md 已明确禁止生成 PDF，但 LLM 有时无视指令。此为 LLM 遵从度问题，非代码 bug
+- workspace 中 .py 中间文件：已被白名单过滤，用户不可见
+
+---
+
+## 2026-05-10 — 文件事件增强 + 路径清理 + exec 文件检测
+
+**问题**：图表/PDF 通过 exec 生成但不显示下载链接；write_file 暴露 .py 中间文件；LLM 回复暴露内部路径
+
+**根因**：
+1. exec 工具创建文件后无文件事件检测机制
+2. `MEDIA_WORKSPACE:` 对所有文件类型都触发，包括 .py/.sh 等中间产物
+3. LLM 响应包含 `/Users/7aoyi/.fastclaw/workspaces/agt_...` 内部路径
+
+**修复**：
+- `agent/loop.go`:
+  - 新增 `isUserFacingFile()` — 只对 PDF/PNG/JPG/CSV/XLSX 等用户可见类型触发 file event，过滤 .py/.sh/.js 等
+  - 新增 `snapshotWorkspace()` + `emitNewWorkspaceFiles()` — exec 后扫描 workspace 新增文件
+  - 新增 `sanitizeContent()` — 从 LLM 响应中清除 workspace 路径前缀
+  - HandleMessage/HandleMessageStream 两个入口点均添加：workspace 快照、exec 后扫描、content 清理
+- MEDIA_WORKSPACE 事件添加 `isUserFacingFile` 过滤
+
+**验证**：
+- write_file .md → file 事件 ✅
+- write_file .py → 无 file 事件 ✅
+- exec 创建文件 → file 事件 ✅
+- Content-Type: PDF=application/pdf, PNG=image/png ✅
+- 路径清理：响应不含内部路径 ✅
+
+---
+
+## 2026-05-10 — 文件显示 + PDF 下载修复
+
+**问题**：生成文件显示"保存在工作目录"无下载链接；PDF 文件无法下载/打开
+
+**根因**：
+1. `write_file` 工具结果不含 `MEDIA:` 标记，agent loop 不检测新文件
+2. 即使检测到文件，`sendMediaFiles` 只发到 IM 消息总线，web SSE 从未收到 `file` 事件
+3. `serveFileFromWorkspaceStore` 硬编码 `Content-Type: application/octet-stream`
+
+**修复**：
+- `tools/file.go`: `write_file` 成功后追加 `MEDIA:` / `MEDIA_WORKSPACE:` 标记（workspace store 路径用 `MEDIA_WORKSPACE:`）
+- `agent/loop.go`: 新增 `extractWorkspaceFileRefs` + `emitFileEventsForWeb`，HandleMessage 和 HandleMessageStream 两个入口点检测文件后通过 `emitEvent` 发 `file` 类型 SSE 事件
+- `setup/handlers_agents.go`: `serveFileFromWorkspaceStore` 使用 `mime.TypeByExtension` 按 MIME 类型设置 Content-Type
+- 编译部署到 `~/.local/bin/fastclaw`，重启 gateway
+
+**验证**：PDF → `application/pdf`，PNG → `image/png`；前端 file event 格式 `{type:"file", data:{path, name}}` 与 `emitEvent` 输出一致
+
+---
+
 ## 2026-05-10 — SSE heartbeat 保活 + BUG-2 proxy 泄漏修复 + SOUL.md 同步 + QA
 
 **SSE heartbeat 保活（FastClaw Fork 修改）**：
